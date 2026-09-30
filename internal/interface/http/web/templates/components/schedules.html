@@ -1,0 +1,62 @@
+{{define "schedules"}}
+<section class="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
+  
+  <!-- Header & Actions -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
+    <div>
+      <div class="flex items-center gap-2.5">
+        <h2 class="text-base font-bold text-slate-900">Automated Cron Schedules</h2>
+        <span id="activeCountBadge" class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700">
+          Loading...
+        </span>
+      </div>
+      <p class="text-xs text-slate-500 mt-0.5">กำหนดรอบเวลาทำงานอัตโนมัติ (Cron) สำหรับแต่ละบริการ</p>
+    </div>
+
+    <div class="flex items-center gap-2 shrink-0">
+      <button type="button" onclick="openScheduleModal()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+        <span>Add Schedule</span>
+      </button>
+      <button type="button" onclick="saveSchedulesToServer()" id="btn-save-all" class="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5">
+        <span>Save Changes</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Unsaved Changes Notice -->
+  <div id="unsavedIndicator" class="hidden p-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center justify-between gap-3">
+    <div class="flex items-center gap-2">
+      <span class="font-bold">Unsaved:</span>
+      <span>มีการแก้ไขตารางเวลาที่ยังไม่ได้บันทึก</span>
+    </div>
+    <button type="button" onclick="saveSchedulesToServer()" class="px-3 py-1 rounded bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs cursor-pointer transition-colors shrink-0">
+      Save Now
+    </button>
+  </div>
+
+  <!-- Filter Tabs -->
+  <div class="flex flex-wrap items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs w-fit">
+    <button type="button" onclick="filterSchedules('all')" id="tab-all" class="px-3 py-1 rounded-md font-bold bg-white text-slate-900 shadow-xs cursor-pointer transition-colors">
+      All (<span id="count-all">0</span>)
+    </button>
+    <button type="button" onclick="filterSchedules('attendance')" id="tab-attendance" class="px-3 py-1 rounded-md font-medium text-slate-600 hover:text-slate-900 cursor-pointer transition-colors">
+      Access Records (<span id="count-att">0</span>)
+    </button>
+    <button type="button" onclick="filterSchedules('help')" id="tab-help" class="px-3 py-1 rounded-md font-medium text-slate-600 hover:text-slate-900 cursor-pointer transition-colors">
+      Help Records (<span id="count-help">0</span>)
+    </button>
+    <button type="button" onclick="filterSchedules('people')" id="tab-people" class="px-3 py-1 rounded-md font-medium text-slate-600 hover:text-slate-900 cursor-pointer transition-colors">
+      People Import (<span id="count-peo">0</span>)
+    </button>
+  </div>
+
+  <!-- Schedule Cards List -->
+  <div id="schedulesContainer" class="space-y-2 pt-1">
+    <!-- Rendered via JavaScript -->
+  </div>
+
+</section>
+{{end}}

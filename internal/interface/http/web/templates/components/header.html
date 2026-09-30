@@ -1,0 +1,55 @@
+{{define "header"}}
+<header class="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-4">
+  
+  <!-- Top Row: Brand & Quick Action Buttons -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0">
+        SV
+      </div>
+      <div class="space-y-0.5 min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <h1 class="text-sm md:text-base font-bold text-slate-900 tracking-tight">Sea Value Data Hub</h1>
+          <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            Port :{{.HTTPPort}}
+          </span>
+        </div>
+        <div class="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+          <span>Target API:</span>
+          <code class="text-blue-700 bg-blue-50 border border-blue-100 px-2 py-0.2 rounded font-mono font-medium truncate max-w-xs md:max-w-md">{{.AppAPIURL}}</code>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Global Action Buttons -->
+    <div class="flex items-center gap-2 self-end md:self-center">
+      <button type="button" onclick="testConnection()" id="btn-test-conn" class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs border border-slate-300 shadow-xs transition-colors cursor-pointer flex items-center gap-1.5">
+        <span>Test Auth</span>
+      </button>
+      <button type="button" onclick="openTimeRangeModal('sync', 'all')" id="btn-sync-all" class="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs shadow-xs flex items-center gap-1.5 transition-colors cursor-pointer">
+        <span>Sync All</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Bottom Row: Navigation Bar -->
+  <nav class="flex items-center gap-1 bg-slate-100 p-1 rounded-lg border border-slate-200 text-xs overflow-x-auto">
+    <button type="button" onclick="switchPage('dashboard')" id="nav-dashboard" class="px-3 py-1.5 rounded-md font-bold bg-white text-blue-700 shadow-xs cursor-pointer flex items-center gap-1.5 transition-colors shrink-0">
+      <span>Dashboard</span>
+    </button>
+    <button type="button" onclick="switchPage('devices')" id="nav-devices" class="px-3 py-1.5 rounded-md font-medium text-slate-600 hover:text-slate-900 cursor-pointer flex items-center gap-1.5 transition-colors shrink-0">
+      <span>Device Registry</span>
+      <span id="navDevCountBadge" class="text-[10px] px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 font-mono">0</span>
+    </button>
+    <button type="button" onclick="switchPage('schedules')" id="nav-schedules" class="px-3 py-1.5 rounded-md font-medium text-slate-600 hover:text-slate-900 cursor-pointer flex items-center gap-1.5 transition-colors shrink-0">
+      <span>Cron Schedules</span>
+      <span id="navSchCountBadge" class="text-[10px] px-1.5 py-0.2 rounded bg-slate-200 text-slate-700 font-mono">0</span>
+    </button>
+    <button type="button" onclick="switchPage('logs')" id="nav-logs" class="px-3 py-1.5 rounded-md font-medium text-slate-600 hover:text-slate-900 cursor-pointer flex items-center gap-1.5 transition-colors shrink-0">
+      <span>Activity Console</span>
+    </button>
+  </nav>
+
+</header>
+{{end}}

@@ -1,0 +1,189 @@
+{{define "modal_timerange"}}
+<div id="timeRangeModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-white border border-slate-200 rounded-xl max-w-lg w-full shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150 max-h-[90vh] flex flex-col">
+    
+    <!-- Modal Header -->
+    <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+      <div>
+        <h3 id="trModalTitle" class="font-bold text-slate-900 text-sm">Manual Sync</h3>
+        <p id="trModalSubtitle" class="text-[11px] text-slate-500">เลือกรูปแบบการซิงค์ข้อมูล</p>
+      </div>
+      <button type="button" onclick="closeTimeRangeModal()" class="w-7 h-7 rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer text-xs">
+        ✕
+      </button>
+    </div>
+
+    <!-- Hidden State Inputs -->
+    <input type="hidden" id="trModal_mode" value="sync">
+    <input type="hidden" id="trModal_service" value="all">
+    <input type="hidden" id="trModal_syncTab" value="independent">
+
+    <!-- Mode Selector Tabs -->
+    <div id="syncModeTabsContainer" class="px-5 pt-3 pb-1 border-b border-slate-100 bg-slate-50/50">
+      <div class="grid grid-cols-2 p-1 bg-slate-200 rounded-lg gap-1">
+        <button type="button" id="tabBtnIndependent" onclick="switchSyncModalTab('independent')" class="py-1.5 px-3 rounded-md text-xs font-bold transition-all cursor-pointer bg-white text-blue-700 shadow-xs text-center">
+          1. Independence (Export TXT)
+        </button>
+        <button type="button" id="tabBtnContinue" onclick="switchSyncModalTab('continue')" class="py-1.5 px-3 rounded-md text-xs font-medium transition-all cursor-pointer text-slate-600 hover:text-slate-900 text-center">
+          2. Continue (Watermark Sync)
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="p-5 space-y-4 text-slate-800 overflow-y-auto flex-1 custom-scrollbar text-xs">
+
+      <!-- TAB 1: INDEPENDENT SYNC (DOWNLOAD TXT) -->
+      <div id="tabContentIndependent" class="space-y-3.5">
+        
+        <!-- Short Info Note -->
+        <p class="text-slate-500 text-[11px]">
+          เลือกช่วงเวลาและเครื่องเพื่อส่งออกไฟล์ .txt ดาวน์โหลดตรงเข้าเครื่อง (ไม่เขียนลง Server และไม่อัปเดต Last Sync Time)
+        </p>
+
+        <!-- Service Target Radio -->
+        <div class="space-y-1">
+          <label class="font-bold text-slate-700 block">ประเภทข้อมูล</label>
+          <div class="grid grid-cols-3 gap-2">
+            <label class="flex items-center justify-center p-2 rounded-lg border border-slate-200 hover:border-slate-300 cursor-pointer transition-colors has-checked:border-blue-600 has-checked:bg-blue-50/60 has-checked:text-blue-900 font-medium">
+              <input type="radio" name="exportServiceType" value="attendance" checked class="sr-only" onchange="onExportServiceTypeChange(this.value)">
+              <span>Attendance</span>
+            </label>
+            <label class="flex items-center justify-center p-2 rounded-lg border border-slate-200 hover:border-slate-300 cursor-pointer transition-colors has-checked:border-blue-600 has-checked:bg-blue-50/60 has-checked:text-blue-900 font-medium">
+              <input type="radio" name="exportServiceType" value="overtime" class="sr-only" onchange="onExportServiceTypeChange(this.value)">
+              <span>Overtime (OT)</span>
+            </label>
+            <label class="flex items-center justify-center p-2 rounded-lg border border-slate-200 hover:border-slate-300 cursor-pointer transition-colors has-checked:border-purple-600 has-checked:bg-purple-50/60 has-checked:text-purple-900 font-medium">
+              <input type="radio" name="exportServiceType" value="help" class="sr-only" onchange="onExportServiceTypeChange(this.value)">
+              <span>Help Records</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Quick Date Presets -->
+        <div class="space-y-1">
+          <label class="font-bold text-slate-700 block">ช่วงเวลา</label>
+          <div class="flex flex-wrap items-center gap-1 text-[11px]">
+            <button type="button" onclick="setModalDatePreset('today')" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium cursor-pointer transition-colors">วันนี้</button>
+            <button type="button" onclick="setModalDatePreset('yesterday')" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium cursor-pointer transition-colors">เมื่อวาน</button>
+            <button type="button" onclick="setModalDatePreset('last3days')" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium cursor-pointer transition-colors">3 วันล่าสุด</button>
+            <button type="button" onclick="setModalDatePreset('last7days')" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium cursor-pointer transition-colors">7 วันล่าสุด</button>
+            <button type="button" onclick="setModalDatePreset('thismonth')" class="px-2.5 py-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium cursor-pointer transition-colors">เดือนนี้</button>
+          </div>
+        </div>
+
+        <!-- Start & End Date Inputs -->
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="space-y-1">
+            <label class="text-[11px] font-medium text-slate-600 block">เริ่มต้น (Start)</label>
+            <input type="datetime-local" id="modal_sync_start" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-medium text-slate-600 block">สิ้นสุด (End)</label>
+            <input type="datetime-local" id="modal_sync_end" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+          </div>
+        </div>
+
+        <!-- Target Devices Multi-Select -->
+        <div class="space-y-1.5 pt-2 border-t border-slate-100">
+          <div class="flex items-center justify-between">
+            <label class="font-bold text-slate-700">เลือกเครื่องสแกน</label>
+            <div class="flex items-center gap-2 text-[11px]">
+              <span id="exportDeviceCountBadge" class="text-slate-500 font-mono">ทั้งหมด</span>
+              <button type="button" onclick="toggleAllExportDevices()" class="text-blue-600 hover:underline cursor-pointer">
+                สลับทั้งหมด
+              </button>
+            </div>
+          </div>
+
+          <input type="text" id="exportDeviceSearchInput" placeholder="ค้นหาชื่อเครื่อง หรือ Device ID..." onkeyup="filterExportDeviceList()" class="w-full px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-md text-xs text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+
+          <div id="exportDeviceListContainer" class="max-h-36 overflow-y-auto border border-slate-200 rounded-lg p-1.5 bg-slate-50/50 space-y-1 divide-y divide-slate-100">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+      </div>
+
+      <!-- TAB 2: CONTINUE SYNC (WATERMARK) -->
+      <div id="tabContentContinue" class="hidden space-y-3.5">
+        
+        <p class="text-slate-500 text-[11px]">
+          ดึงข้อมูลต่อจากเวลาล่าสุด (Last Sync Time) ของแต่ละเครื่อง บันทึกไฟล์ลง Server (<span class="font-mono">data/</span>) และอัปเดต Last Sync Time ให้อัตโนมัติ
+        </p>
+
+        <!-- Target Service Selection -->
+        <div class="space-y-1">
+          <label class="font-bold text-slate-700 block">บริการที่ต้องการซิงค์</label>
+          <select id="continueServiceSelect" onchange="updateContinueSummaryCards()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer">
+            <option value="all">ทุกระบบ (All Tasks)</option>
+            <option value="attendance">Attendance & Overtime (Access Records)</option>
+            <option value="help">Help Records (Overtime App API)</option>
+            <option value="people">People Import (Excel)</option>
+          </select>
+        </div>
+
+        <!-- Watermark Status Overview -->
+        <div class="space-y-2">
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-slate-700 text-xs">เวลาเริ่มต้นของแต่ละระบบ (Start Watermarks)</span>
+            <button type="button" onclick="closeTimeRangeModal(); openBulkWatermarkModal();" class="text-blue-600 hover:text-blue-800 text-[11px] font-medium hover:underline cursor-pointer flex items-center gap-1">
+              <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+              </svg>
+              <span>ปรับแก้ Watermark</span>
+            </button>
+          </div>
+          <div class="grid grid-cols-2 gap-2 text-xs">
+            <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-0.5">
+              <span class="text-slate-500 text-[11px] block">Attendance Watermark:</span>
+              <span id="continueAttendanceWatermarkText" class="font-mono font-bold text-blue-700 block">--</span>
+            </div>
+            <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-0.5">
+              <span class="text-slate-500 text-[11px] block">Help Watermark:</span>
+              <span id="continueHelpWatermarkText" class="font-mono font-bold text-purple-700 block">--</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between">
+          <span class="text-slate-600 text-[11px]">สิ้นสุดที่เวลาปัจจุบัน (End Time):</span>
+          <span id="continueCurrentTimeText" class="font-mono font-bold text-slate-800">--</span>
+        </div>
+
+      </div>
+
+      <!-- TAB 3: TEST PREVIEW -->
+      <div id="tabContentTest" class="hidden space-y-3">
+        <p class="text-slate-500 text-[11px]">
+          ทดสอบยิง API ในช่วงเวลาที่เลือก และแสดงข้อมูล JSON ดิบเพื่อตรวจสอบผลลัพธ์
+        </p>
+
+        <div class="grid grid-cols-2 gap-2.5">
+          <div class="space-y-1">
+            <label class="text-[11px] font-medium text-slate-600 block">เริ่มต้น (Start)</label>
+            <input type="datetime-local" id="modal_test_start" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+          </div>
+          <div class="space-y-1">
+            <label class="text-[11px] font-medium text-slate-600 block">สิ้นสุด (End)</label>
+            <input type="datetime-local" id="modal_test_end" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500">
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Modal Footer Actions -->
+    <div class="p-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+      <button type="button" onclick="closeTimeRangeModal()" class="px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-medium cursor-pointer transition-colors">
+        ยกเลิก
+      </button>
+
+      <button type="button" id="trModalSubmitBtn" onclick="submitTimeRangeModal()" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs cursor-pointer transition-colors">
+        <span id="trModalSubmitText">Export TXT</span>
+      </button>
+    </div>
+
+  </div>
+</div>
+{{end}}

@@ -1,0 +1,22 @@
+[
+  {
+    "id": "021c616e-7e0a-4a1a-b12f-ce9f0e9a98dc",
+    "name": "sdfsd",
+    "ipAddress": "192.168.1.66",
+    "status": "OFFLINE",
+    "isOt": true,
+    "enabled": true,
+    "attendanceLastSyncTime": "2026-09-30T17:55:00+07:00",
+    "lastSyncTime": "2026-09-30T17:55:00+07:00"
+  },
+  {
+    "id": "86890b63-955f-4ea7-84ad-8f644880e0c5",
+    "name": "shenxing_e88",
+    "ipAddress": "10.243.101.29",
+    "status": "OFFLINE",
+    "isOt": false,
+    "enabled": true,
+    "attendanceLastSyncTime": "2026-09-30T17:55:00+07:00",
+    "lastSyncTime": "2026-09-30T17:55:00+07:00"
+  }
+]

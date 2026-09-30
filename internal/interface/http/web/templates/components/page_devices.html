@@ -1,0 +1,143 @@
+{{define "page_devices"}}
+<section class="space-y-4">
+
+  <!-- Header & Actions -->
+  <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-100 gap-3">
+      <div>
+        <div class="flex items-center gap-2.5">
+          <h2 class="text-base font-bold text-slate-900">Device Registry & Sync Watermarks</h2>
+          <span id="devSummaryBadge" class="px-2 py-0.5 rounded text-[11px] font-medium bg-slate-100 text-slate-700">
+            Loading...
+          </span>
+        </div>
+        <p class="text-xs text-slate-500 mt-0.5">จัดการรายการเครื่องสแกนและตรวจสอบเวลาซิงค์ล่าสุดรายเครื่อง (Watermark)</p>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <button type="button" onclick="openBulkWatermarkModal()" id="btn-bulk-watermark" class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs border border-slate-300 shadow-xs transition-colors cursor-pointer flex items-center gap-1.5" title="ตั้งค่าเวลา Last Sync พร้อมกันทุกเครื่อง">
+          <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <span>Adjust All Watermarks</span>
+        </button>
+        <button type="button" onclick="syncDevicesFromAPI()" id="btn-sync-devices-api" class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 font-medium text-xs border border-slate-300 shadow-xs transition-colors cursor-pointer flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+          </svg>
+          <span>Sync from CentAccess</span>
+        </button>
+        <button type="button" onclick="saveDeviceRegistry()" id="btn-save-device-registry" class="px-3.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5">
+          <span>Save Changes</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 4 Clean KPI Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+      <div class="p-3.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-0.5">
+        <div class="text-slate-500 font-medium">Total Registered</div>
+        <div class="text-lg font-bold text-slate-900 font-mono" id="stat-total-devices">0</div>
+      </div>
+      <div class="p-3.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-0.5">
+        <div class="text-slate-500 font-medium">OT Gate Devices</div>
+        <div class="text-lg font-bold text-purple-700 font-mono" id="stat-ot-devices">0</div>
+      </div>
+      <div class="p-3.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-0.5">
+        <div class="text-slate-500 font-medium">Standard Devices</div>
+        <div class="text-lg font-bold text-blue-700 font-mono" id="stat-normal-devices">0</div>
+      </div>
+      <div class="p-3.5 rounded-lg bg-slate-50 border border-slate-200/80 space-y-0.5">
+        <div class="text-slate-500 font-medium">Active (Enabled)</div>
+        <div class="text-lg font-bold text-emerald-700 font-mono" id="stat-active-devices">0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Device List Container Card -->
+  <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-4">
+
+    <!-- Search & Filter Controls -->
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+      <div class="relative flex-1">
+        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+          </svg>
+        </span>
+        <input type="text" id="devRegistrySearch" oninput="filterDeviceRegistry(this.value)" class="w-full bg-white border border-slate-300 rounded-md pl-8 pr-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="ค้นหาชื่อเครื่อง, IP Address หรือ Device ID...">
+      </div>
+      
+      <div class="flex flex-wrap items-center gap-1.5 text-xs">
+        <div class="flex items-center gap-1 bg-white p-1 rounded-md border border-slate-200">
+          <button type="button" onclick="filterDeviceTab('all')" id="dev-tab-all" class="px-2.5 py-0.5 rounded font-bold bg-slate-100 text-slate-900 cursor-pointer transition-colors">All (<span id="dev-tab-count-all">0</span>)</button>
+          <button type="button" onclick="filterDeviceTab('ot')" id="dev-tab-ot" class="px-2.5 py-0.5 rounded font-medium text-slate-600 hover:text-slate-900 cursor-pointer transition-colors">OT Gates (<span id="dev-tab-count-ot">0</span>)</button>
+          <button type="button" onclick="filterDeviceTab('normal')" id="dev-tab-normal" class="px-2.5 py-0.5 rounded font-medium text-slate-600 hover:text-slate-900 cursor-pointer transition-colors">Standard (<span id="dev-tab-count-normal">0</span>)</button>
+        </div>
+
+        <div class="flex items-center gap-1">
+          <button type="button" onclick="bulkSetOT(true)" class="px-2.5 py-1 rounded-md bg-white hover:bg-slate-100 text-slate-700 font-medium border border-slate-200 cursor-pointer text-[11px] shadow-xs transition-colors">
+            Select All OT
+          </button>
+          <button type="button" onclick="bulkSetOT(false)" class="px-2.5 py-1 rounded-md bg-white hover:bg-slate-100 text-slate-700 font-medium border border-slate-200 cursor-pointer text-[11px] shadow-xs transition-colors">
+            Clear OT
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Device List Cards Container -->
+    <div id="deviceRegistryContainer" class="space-y-2.5">
+      <div class="p-8 text-center text-xs text-slate-400 font-mono">
+        Loading device registry...
+      </div>
+    </div>
+
+    <!-- Additional Matching Rules & Lookback Controls -->
+    <div class="pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+      <div class="space-y-1">
+        <label class="font-bold text-slate-700 block">
+          OT Device Name Keywords (คำค้นชื่อเครื่อง OT)
+        </label>
+        <input type="text" id="devRegistry_keywords" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-mono text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="OT, Gate OT, Overtime, ประตูโอที">
+        <p class="text-[11px] text-slate-500">คั่นด้วยจุลภาค เช่น OT, Gate OT</p>
+      </div>
+
+      <div class="space-y-1">
+        <label class="font-bold text-slate-700 block">
+          Additional Target Device IDs (ระบุ Device ID เพิ่มเติม)
+        </label>
+        <input type="text" id="devRegistry_extra_ids" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-mono text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="86890b63-955f-4ea7-84ad-8f644880e0c5, ...">
+        <p class="text-[11px] text-slate-500">ระบุ UUID ของเครื่องสแกนที่ต้องการจัดเป็น OT Gate</p>
+      </div>
+    </div>
+
+    <!-- Sync Lookback Limits & Safety Window -->
+    <div class="pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs bg-slate-50/50 p-3 rounded-lg border border-slate-200">
+      <div class="space-y-1">
+        <label class="font-bold text-slate-800 flex items-center justify-between">
+          <span>Initial Lookback (เมื่อเป็น Never / Reset)</span>
+          <span class="text-blue-600 font-mono text-[11px]">ชม. (Hours)</span>
+        </label>
+        <div class="flex items-center gap-2">
+          <input type="number" id="job_initial_lookback_hours" min="0" max="168" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 font-mono text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs font-bold" placeholder="24">
+        </div>
+        <p class="text-[11px] text-slate-500">จำนวนชั่วโมงที่ดึงย้อนหลังเมื่ออุปกรณ์ไม่มี Watermark (เช่น 24 ชม., 2 ชม. หรือใส่ 0 = ดึงตั้งแต่ 00:00:00 ต้นวัน)</p>
+      </div>
+
+      <div class="space-y-1">
+        <label class="font-bold text-slate-800 flex items-center justify-between">
+          <span>Max Lookback Safety Cap (เพดานจำกัดดึงย้อนหลังสูงสุด)</span>
+          <span class="text-purple-600 font-mono text-[11px]">วัน (Days)</span>
+        </label>
+        <div class="flex items-center gap-2">
+          <input type="number" id="job_max_lookback_days" min="1" max="90" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 font-mono text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs font-bold" placeholder="7">
+        </div>
+        <p class="text-[11px] text-slate-500">ป้องกันไม่ให้ดึงข้อมูลย้อนหลังเกินเพดานที่กำหนด แม้เครื่องจะมี Watermark ค้างเก่ามาก (ค่าเริ่มต้น 7 วัน)</p>
+      </div>
+    </div>
+
+  </div>
+
+</section>
+{{end}}

@@ -1,0 +1,74 @@
+{
+  "httpPort": "9090",
+  "exportBaseDir": "./data",
+  "logLevel": "info",
+  "appToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNlYV92YWx1ZV9hZG1pbiIsImFjY291bnRJZCI6Ijg4NjM1NDViLTkzZDItNGRjNS1hOWUxLTY0ZWRmMmQ4Mjc3MiIsInRlbmFudElkIjoiNWUzZjRkYWMtNzRkNi00ZjcyLWI2ZmQtMjNiNmJkNjA0YjQ3IiwidGVuYW50TmFtZSI6IlNlYSBWYWx1ZSIsInRlbmFudExldmVsIjoiIiwicm9sZSI6IkFETUlOIiwiZGVmYXVsdERhc2hib2FyZCI6ImNvcmUiLCJleHAiOjE3OTA4MzY2OTUsImlhdCI6MTc5MDc1MDI5NX0.TIkip1BzGJVWpfcBQj0DOYSFjp-8w0ji3cIfvfYkdfk",
+  "schedules": [
+    {
+      "id": "sch_att_1",
+      "name": "Attendance \u0026 OT Gate - Every 2 Hours",
+      "type": "attendance",
+      "cronSchedule": "*/1 * * * *",
+      "enabled": true
+    },
+    {
+      "id": "sch_att_2",
+      "name": "Attendance \u0026 OT Gate - Daily Morning (05:30)",
+      "type": "attendance",
+      "cronSchedule": "30 5 * * *",
+      "enabled": true
+    },
+    {
+      "id": "sch_help_1",
+      "name": "Help Records - Daily Sync (23:00)",
+      "type": "help",
+      "cronSchedule": "0 23 * * *",
+      "enabled": true
+    },
+    {
+      "id": "sch_people_1",
+      "name": "People Excel - Auto Scan (15m)",
+      "type": "people",
+      "cronSchedule": "*/15 * * * *",
+      "enabled": true
+    }
+  ],
+  "jobs": {
+    "attendance": {
+      "exportFolder": "attendance",
+      "fetchLimit": 5000,
+      "format": "txt",
+      "initialLookbackHours": 240,
+      "maxLookbackDays": 7,
+      "excludeDeviceNames": [
+        "11"
+      ],
+      "excludeDeviceIds": [
+        "021c616e-7e0a-4a1a-b12f-ce9f0e9a98dc"
+      ]
+    },
+    "overtime": {
+      "exportFolder": "overtime",
+      "format": "txt",
+      "initialLookbackHours": 240,
+      "maxLookbackDays": 7,
+      "targetDeviceNames": [
+        "11"
+      ],
+      "targetDeviceIds": [
+        "021c616e-7e0a-4a1a-b12f-ce9f0e9a98dc"
+      ]
+    },
+    "help": {
+      "exportFolder": "help",
+      "format": "txt",
+      "initialLookbackHours": 240,
+      "maxLookbackDays": 7
+    },
+    "peopleImport": {
+      "inputFolder": "people",
+      "archiveFolder": "people/processed",
+      "batchSize": 100
+    }
+  }
+}

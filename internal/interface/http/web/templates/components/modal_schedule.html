@@ -1,0 +1,98 @@
+{{define "modal_schedule"}}
+<div id="scheduleModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-white border border-slate-200 rounded-xl max-w-lg w-full shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
+    
+    <!-- Modal Header -->
+    <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+      <div>
+        <h3 id="scheduleModalTitle" class="font-bold text-slate-900 text-sm">Add Cron Schedule</h3>
+        <p class="text-[11px] text-slate-500">กำหนดรอบเวลาทำงานอัตโนมัติ</p>
+      </div>
+      <button type="button" onclick="closeScheduleModal()" class="w-7 h-7 rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer text-xs">
+        ✕
+      </button>
+    </div>
+
+    <form id="scheduleEditForm" onsubmit="handleScheduleFormSubmit(event)" class="p-5 space-y-4 text-slate-800 text-xs">
+      <input type="hidden" id="modal_sch_id">
+
+      <!-- Schedule Name -->
+      <div class="space-y-1">
+        <label class="font-bold text-slate-700 block">ชื่อตารางงาน (Schedule Name)</label>
+        <input type="text" id="modal_sch_name" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium" placeholder="e.g. Attendance & OT - Morning (05:30)" required>
+      </div>
+
+      <!-- Target Service Selection -->
+      <div class="space-y-1">
+        <label class="font-bold text-slate-700 block">บริการ (Target Service)</label>
+        <div class="grid grid-cols-3 gap-2 text-center">
+          
+          <label class="flex flex-col items-center justify-center p-2.5 rounded-lg border border-slate-200 hover:border-slate-300 cursor-pointer has-checked:border-blue-600 has-checked:bg-blue-50/60 has-checked:text-blue-900 transition-colors">
+            <input type="radio" name="sch_service" value="attendance" class="sr-only" checked>
+            <span class="font-bold">Access Records</span>
+            <span class="text-[10px] text-slate-500">Attendance & OT</span>
+          </label>
+
+          <label class="flex flex-col items-center justify-center p-2.5 rounded-lg border border-slate-200 hover:border-slate-300 cursor-pointer has-checked:border-purple-600 has-checked:bg-purple-50/60 has-checked:text-purple-900 transition-colors">
+            <input type="radio" name="sch_service" value="help" class="sr-only">
+            <span class="font-bold">Help Records</span>
+            <span class="text-[10px] text-slate-500">OT App API</span>
+          </label>
+
+          <label class="flex flex-col items-center justify-center p-2.5 rounded-lg border border-slate-200 hover:border-slate-300 cursor-pointer has-checked:border-emerald-600 has-checked:bg-emerald-50/60 has-checked:text-emerald-900 transition-colors">
+            <input type="radio" name="sch_service" value="people" class="sr-only">
+            <span class="font-bold">People Import</span>
+            <span class="text-[10px] text-slate-500">Excel Scanner</span>
+          </label>
+
+        </div>
+      </div>
+
+      <!-- Cron Expression -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between">
+          <label class="font-bold text-slate-700">Cron Expression</label>
+          <span id="cronHumanPreview" class="text-[11px] text-blue-700 font-medium"></span>
+        </div>
+        <input type="text" id="modal_sch_cron" oninput="updateCronPreview(this.value)" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-mono text-slate-900 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-bold" placeholder="e.g. 30 5 * * *" required>
+        
+        <!-- Presets -->
+        <div class="flex flex-wrap items-center gap-1 text-[11px] text-slate-600 pt-0.5">
+          <span class="text-slate-400 font-medium">Presets:</span>
+          <button type="button" onclick="setModalCron('*/15 * * * *')" class="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 font-mono cursor-pointer">*/15m</button>
+          <button type="button" onclick="setModalCron('*/30 * * * *')" class="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 font-mono cursor-pointer">*/30m</button>
+          <button type="button" onclick="setModalCron('0 * * * *')" class="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 font-mono cursor-pointer">Hourly</button>
+          <button type="button" onclick="setModalCron('0 */2 * * *')" class="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 font-mono cursor-pointer">Every 2h</button>
+          <button type="button" onclick="setModalCron('30 5 * * *')" class="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 font-mono cursor-pointer">05:30 AM</button>
+          <button type="button" onclick="setModalCron('0 22 * * *')" class="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 font-mono cursor-pointer">22:00 PM</button>
+        </div>
+      </div>
+
+
+
+      <!-- Enabled Switch -->
+      <div class="flex items-center justify-between p-3 rounded-lg bg-slate-50 border border-slate-200">
+        <div>
+          <span class="font-bold text-slate-800 block">เปิดใช้งาน (Enabled)</span>
+          <span class="text-[11px] text-slate-500">เปิด/ปิดการทำงานของตารางเวลานี้</span>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="modal_sch_enabled" class="sr-only peer" checked>
+          <div class="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+        </label>
+      </div>
+
+      <!-- Modal Actions -->
+      <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+        <button type="button" onclick="closeScheduleModal()" class="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium cursor-pointer transition-colors">
+          Cancel
+        </button>
+        <button type="submit" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs cursor-pointer transition-colors">
+          Save Schedule
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>
+{{end}}

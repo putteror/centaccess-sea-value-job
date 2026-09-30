@@ -1,0 +1,29 @@
+{{define "console"}}
+<section class="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-xs space-y-3 flex flex-col h-[calc(100vh-130px)]">
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-2.5 border-b border-slate-800 gap-3">
+    <div class="flex items-center gap-2.5">
+      <div class="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center font-bold text-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h3 class="text-sm font-bold text-slate-200">System Activity Console</h3>
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+        </div>
+        <p class="text-[11px] text-slate-400">บันทึกกิจกรรมและการทำงานของระบบแบบ Real-time</p>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <button type="button" onclick="clearLog()" class="text-xs font-medium text-slate-300 hover:text-white cursor-pointer transition-colors px-3 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700">
+        Clear
+      </button>
+    </div>
+  </div>
+
+  <div id="consoleLog" class="flex-1 overflow-y-auto dark-scrollbar bg-slate-950 rounded-lg p-3.5 text-xs font-mono text-slate-300 space-y-1.5 border border-slate-800/80">
+    <div class="text-slate-500">[System] Sea Value Integration Service online. Ready.</div>
+  </div>
+</section>
+{{end}}

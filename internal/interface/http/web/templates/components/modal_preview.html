@@ -1,0 +1,37 @@
+{{define "modal_preview"}}
+<div id="dataModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-white border border-slate-200 rounded-xl max-w-3xl w-full max-h-[85vh] flex flex-col shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
+    
+    <!-- Modal Header -->
+    <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
+      <div>
+        <h3 id="modalTitle" class="font-bold text-slate-900 text-sm">API Response Preview</h3>
+        <p id="modalSubtitle" class="text-[11px] text-slate-500 font-mono">Endpoint details</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="copyModalData()" class="px-2.5 py-1 rounded-md bg-white hover:bg-slate-100 text-slate-700 text-xs font-medium border border-slate-200 transition-colors cursor-pointer shadow-xs">
+          Copy JSON
+        </button>
+        <button type="button" onclick="closeModal()" class="w-7 h-7 rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer text-xs">
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal Meta Bar -->
+    <div id="modalMetaBar" class="px-4 py-2 bg-slate-100 border-b border-slate-200 flex flex-wrap items-center gap-2 text-xs font-mono shrink-0"></div>
+
+    <!-- Modal Body (Raw JSON Viewer) -->
+    <div class="p-4 overflow-y-auto dark-scrollbar flex-1 font-mono text-xs bg-slate-950 text-slate-200">
+      <pre id="modalJson" class="overflow-x-auto whitespace-pre-wrap leading-relaxed text-emerald-400"></pre>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="p-3 border-t border-slate-100 bg-slate-50 flex items-center justify-end shrink-0">
+      <button type="button" onclick="closeModal()" class="px-4 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white text-xs font-medium cursor-pointer transition-colors">
+        Close
+      </button>
+    </div>
+  </div>
+</div>
+{{end}}

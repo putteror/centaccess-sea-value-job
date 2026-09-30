@@ -1,0 +1,91 @@
+{{define "modal_devices"}}
+<div id="devicesModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-white border border-slate-200 rounded-xl max-w-2xl w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-150 flex flex-col max-h-[90vh]">
+    
+    <!-- Modal Header -->
+    <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
+      <div>
+        <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+          <span>OT Devices Configuration</span>
+          <span id="devModalCountBadge" class="text-[11px] font-semibold px-2 py-0.5 rounded bg-purple-50 text-purple-800 border border-purple-200">0 OT Selected</span>
+        </h3>
+        <p class="text-xs text-slate-500 mt-0.5">เลือกเครื่องสแกนที่เป็นเครื่อง OT เพื่อแยกเขียนลงโฟลเดอร์ <code class="font-mono text-slate-700 bg-slate-200/60 px-1 py-0.2 rounded">data/overtime/</code></p>
+      </div>
+      <button type="button" onclick="closeDevicesModal()" class="w-7 h-7 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer text-xs">
+        ✕
+      </button>
+    </div>
+
+    <!-- Modal Body (Scrollable) -->
+    <div class="p-5 overflow-y-auto space-y-4 flex-1 text-slate-800 text-xs">
+
+      <!-- Search & Quick Action Toolbar -->
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+        <div class="relative flex-1">
+          <input type="text" id="devSearchInput" oninput="filterDeviceList(this.value)" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="ค้นหาชื่อเครื่อง, IP หรือ Device ID...">
+        </div>
+        <div class="flex items-center gap-1.5 shrink-0 text-xs">
+          <button type="button" onclick="selectAllDevices(true)" class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 font-medium border border-slate-200 cursor-pointer shadow-xs transition-colors">
+            Select All
+          </button>
+          <button type="button" onclick="selectAllDevices(false)" class="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-100 text-slate-700 font-medium border border-slate-200 cursor-pointer shadow-xs transition-colors">
+            Clear
+          </button>
+          <button type="button" onclick="fetchAndRenderDevices(true)" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-medium border border-slate-300 cursor-pointer shadow-xs transition-colors" title="Refresh from App API">
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <!-- Discovered Devices List -->
+      <div class="space-y-1.5">
+        <div class="flex items-center justify-between px-1">
+          <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">Discovered Devices</label>
+          <span id="devListTotalLabel" class="text-[11px] text-slate-500 font-medium">Loading devices...</span>
+        </div>
+
+        <div id="deviceListContainer" class="space-y-1 max-h-56 overflow-y-auto border border-slate-200 rounded-lg p-2 bg-slate-50/50">
+          <div class="p-6 text-center text-xs text-slate-500 font-mono">
+            Loading device list from API...
+          </div>
+        </div>
+      </div>
+
+      <!-- Matcher Rules -->
+      <div class="pt-3 border-t border-slate-100 space-y-3">
+        <div class="space-y-1">
+          <label class="text-xs font-bold text-slate-700 flex items-center justify-between">
+            <span>OT Device Name Keywords (คำค้นชื่อเครื่อง OT)</span>
+            <span class="text-[11px] text-slate-400 font-normal">คั่นด้วยจุลภาค (Comma)</span>
+          </label>
+          <input type="text" id="devModal_keywords" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-mono text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="OT, Gate OT, Overtime, ประตูโอที">
+          <p class="text-[11px] text-slate-500">หากชื่อเครื่องในอนาคตมีคำเหล่านี้ ระบบจะจัดเป็นเครื่อง OT ให้อัตโนมัติ</p>
+        </div>
+
+        <div class="space-y-1">
+          <label class="text-xs font-bold text-slate-700 flex items-center justify-between">
+            <span>Additional Target Device IDs (ระบุ Device ID เพิ่มเติม)</span>
+            <span class="text-[11px] text-slate-400 font-normal">คั่นด้วยจุลภาค (Comma)</span>
+          </label>
+          <input type="text" id="devModal_extra_ids" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-mono text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500" placeholder="86890b63-955f-4ea7-84ad-8f644880e0c5, ...">
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="p-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
+      <span class="text-xs text-slate-500">บันทึกลง <code class="text-slate-700 bg-slate-200 px-1 py-0.2 rounded font-mono">devices.json</code></span>
+      <div class="flex items-center gap-2">
+        <button type="button" onclick="closeDevicesModal()" class="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium cursor-pointer transition-colors">
+          Cancel
+        </button>
+        <button type="button" id="btn-save-devices" onclick="saveDevicesConfig()" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs cursor-pointer transition-colors">
+          Save OT Devices
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>
+{{end}}

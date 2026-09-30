@@ -1,0 +1,110 @@
+{{define "modal_watermark"}}
+<div id="watermarkModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-white border border-slate-200 rounded-xl max-w-lg w-full shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-150 flex flex-col max-h-[90vh]">
+    
+    <!-- Modal Header -->
+    <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
+      <div>
+        <h3 id="wmModalTitle" class="font-bold text-slate-900 text-sm flex items-center gap-2">
+          <span>Adjust Sync Watermark</span>
+          <span id="wmModalDeviceBadge" class="text-[11px] font-semibold px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">Device</span>
+        </h3>
+        <p id="wmModalSubtitle" class="text-xs text-slate-500 mt-0.5">ปรับตั้งค่าเวลา Last Sync สำหรับการดึงข้อมูลรอบถัดไป</p>
+      </div>
+      <button type="button" onclick="closeWatermarkModal()" class="w-7 h-7 rounded-lg hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer text-xs">
+        ✕
+      </button>
+    </div>
+
+    <!-- Hidden State -->
+    <input type="hidden" id="wmModal_deviceId" value="">
+
+    <!-- Modal Body (Scrollable) -->
+    <div class="p-5 overflow-y-auto space-y-4 flex-1 text-slate-800 text-xs">
+
+      <!-- Target Info Card -->
+      <div id="wmModalDeviceInfoCard" class="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
+        <div class="flex items-center justify-between">
+          <span class="font-bold text-slate-900 text-xs" id="wmModalDeviceName">--</span>
+          <span class="font-mono text-[11px] text-slate-500" id="wmModalDeviceIP">--</span>
+        </div>
+        <div class="text-[11px] text-slate-400 font-mono" id="wmModalDeviceID">--</div>
+      </div>
+
+      <!-- Attendance Watermark Section -->
+      <div class="p-3.5 rounded-xl border border-blue-100 bg-blue-50/30 space-y-2.5">
+        <div class="flex items-center justify-between">
+          <label class="font-bold text-blue-900 flex items-center gap-1.5 text-xs">
+            <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span>Attendance & OT Watermark</span>
+          </label>
+          <span class="text-[10px] text-blue-600 font-medium">CentAccess Access Records</span>
+        </div>
+
+        <div class="space-y-1">
+          <input type="datetime-local" id="wmModal_attTime" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 font-mono text-slate-900 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none">
+        </div>
+
+        <!-- Attendance Quick Presets -->
+        <div class="flex flex-wrap items-center gap-1 pt-1">
+          <span class="text-[10px] text-slate-400 font-medium">Presets:</span>
+          <button type="button" onclick="setWmField('attendance', 'today')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] cursor-pointer transition-colors shadow-2xs">วันนี้ 00:00</button>
+          <button type="button" onclick="setWmField('attendance', 'yesterday')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] cursor-pointer transition-colors shadow-2xs">เมื่อวาน 00:00</button>
+          <button type="button" onclick="setWmField('attendance', 'now')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] cursor-pointer transition-colors shadow-2xs">เวลาปัจจุบัน</button>
+          <button type="button" onclick="setWmField('attendance', 'clear')" class="px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-[11px] cursor-pointer transition-colors shadow-2xs">Clear (Never)</button>
+        </div>
+      </div>
+
+      <!-- Help Watermark Section -->
+      <div class="p-3.5 rounded-xl border border-purple-100 bg-purple-50/30 space-y-2.5">
+        <div class="flex items-center justify-between">
+          <label class="font-bold text-purple-900 flex items-center gap-1.5 text-xs">
+            <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <span>Help Service Watermark</span>
+          </label>
+          <span class="text-[10px] text-purple-600 font-medium">Overtime App API</span>
+        </div>
+
+        <div class="space-y-1">
+          <input type="datetime-local" id="wmModal_helpTime" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 font-mono text-slate-900 text-xs focus:ring-1 focus:ring-purple-500 focus:outline-none">
+        </div>
+
+        <!-- Help Quick Presets -->
+        <div class="flex flex-wrap items-center gap-1 pt-1">
+          <span class="text-[10px] text-slate-400 font-medium">Presets:</span>
+          <button type="button" onclick="setWmField('help', 'today')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] cursor-pointer transition-colors shadow-2xs">วันนี้ 00:00</button>
+          <button type="button" onclick="setWmField('help', 'yesterday')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] cursor-pointer transition-colors shadow-2xs">เมื่อวาน 00:00</button>
+          <button type="button" onclick="setWmField('help', 'now')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-[11px] cursor-pointer transition-colors shadow-2xs">เวลาปัจจุบัน</button>
+          <button type="button" onclick="setWmField('help', 'clear')" class="px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 text-[11px] cursor-pointer transition-colors shadow-2xs">Clear (Never)</button>
+        </div>
+      </div>
+
+      <!-- Quick Global Batch Buttons -->
+      <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-[11px]">
+        <span class="text-slate-500 font-medium">ทั้งสองระบบ (Both):</span>
+        <div class="flex items-center gap-1.5">
+          <button type="button" onclick="setWmField('both', 'today')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 cursor-pointer shadow-2xs">วันนี้ 00:00</button>
+          <button type="button" onclick="setWmField('both', 'now')" class="px-2 py-0.5 rounded bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 cursor-pointer shadow-2xs">ตอนนี้</button>
+          <button type="button" onclick="setWmField('both', 'clear')" class="px-2 py-0.5 rounded bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 cursor-pointer shadow-2xs">ล้างทั้งหมด</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="p-3.5 border-t border-slate-100 bg-slate-50 flex items-center justify-between shrink-0">
+      <button type="button" onclick="closeWatermarkModal()" class="px-3.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-medium cursor-pointer transition-colors">
+        Cancel
+      </button>
+      <button type="button" id="btn-save-watermark" onclick="submitWatermarkModal()" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold shadow-xs cursor-pointer transition-colors flex items-center gap-1.5">
+        <span>Save Watermark</span>
+      </button>
+    </div>
+
+  </div>
+</div>
+{{end}}

@@ -1,0 +1,135 @@
+{{define "on_demand"}}
+<section class="space-y-5">
+
+  <!-- Overview Header -->
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200">
+    <div>
+      <h2 class="text-base font-bold text-slate-900">Data Synchronization</h2>
+      <p class="text-xs text-slate-500">จัดการและตรวจสอบการซิงค์ข้อมูล Attendance, Overtime Gate, Help Records และ Employee Import</p>
+    </div>
+    <div class="flex items-center gap-2 text-xs font-mono text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-lg self-start sm:self-auto">
+      <span>Export Path:</span>
+      <span class="text-slate-800 font-semibold">{{.ExportBaseDir}}</span>
+    </div>
+  </div>
+
+  <!-- 3 Service Action Cards Grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+    
+    <!-- Service 1: Access Records (Attendance & OT) -->
+    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-colors">
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </div>
+          <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Access Records</span>
+        </div>
+
+        <div>
+          <h3 class="font-bold text-slate-900 text-sm">Attendance & Overtime</h3>
+          <p class="text-xs text-slate-500 mt-0.5">ดึงข้อมูลการสแกนประตูจาก CentAccess และแยกบันทึกลงโฟลเดอร์ตามประเภทเครื่อง</p>
+        </div>
+
+        <div class="space-y-1.5 p-3 rounded-lg bg-slate-50 border border-slate-100 text-xs font-mono text-slate-600">
+          <div class="flex items-center justify-between">
+            <span class="font-sans text-slate-500">Normal:</span>
+            <code class="text-blue-700 font-medium">data/attendance/</code>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="font-sans text-slate-500">OT Gate:</span>
+            <code class="text-slate-700 font-medium">data/overtime/</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+        <button type="button" onclick="openTimeRangeModal('test', 'attendance')" id="btn-test-attendance" class="flex-1 py-2 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition-colors cursor-pointer text-center">
+          Preview
+        </button>
+        <button type="button" onclick="openTimeRangeModal('sync', 'attendance')" id="btn-sync-attendance" class="flex-1 py-2 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs transition-colors shadow-xs cursor-pointer text-center">
+          Sync Now
+        </button>
+      </div>
+    </div>
+
+    <!-- Service 2: Help Records -->
+    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-colors">
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="w-9 h-9 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+          </div>
+          <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Help Service</span>
+        </div>
+
+        <div>
+          <h3 class="font-bold text-slate-900 text-sm">Help Records (OT App)</h3>
+          <p class="text-xs text-slate-500 mt-0.5">ดึงข้อมูลคำขอช่วยงานข้ามแผนกและคำขอลงเวลาทำงานจาก Overtime App API</p>
+        </div>
+
+        <div class="space-y-1.5 p-3 rounded-lg bg-slate-50 border border-slate-100 text-xs font-mono text-slate-600">
+          <div class="flex items-center justify-between">
+            <span class="font-sans text-slate-500">Target Folder:</span>
+            <code class="text-purple-700 font-medium">data/help/</code>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="font-sans text-slate-500">Format:</span>
+            <span class="font-sans text-slate-600">7 Columns (CheckIn/Out)</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+        <button type="button" onclick="openTimeRangeModal('test', 'help')" id="btn-test-help" class="flex-1 py-2 px-3 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition-colors cursor-pointer text-center">
+          Preview
+        </button>
+        <button type="button" onclick="openTimeRangeModal('sync', 'help')" id="btn-sync-help" class="flex-1 py-2 px-3 rounded-lg bg-purple-600 hover:bg-purple-700 text-white font-medium text-xs transition-colors shadow-xs cursor-pointer text-center">
+          Sync Now
+        </button>
+      </div>
+    </div>
+
+    <!-- Service 3: People Import -->
+    <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col justify-between hover:border-slate-300 transition-colors">
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <div class="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"></path>
+            </svg>
+          </div>
+          <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Employee Master</span>
+        </div>
+
+        <div>
+          <h3 class="font-bold text-slate-900 text-sm">People Excel Import</h3>
+          <p class="text-xs text-slate-500 mt-0.5">สแกนไฟล์ Excel รายชื่อพนักงานจากโฟลเดอร์ และนำเข้าสู่ CentAccess API</p>
+        </div>
+
+        <div class="space-y-1.5 p-3 rounded-lg bg-slate-50 border border-slate-100 text-xs font-mono text-slate-600">
+          <div class="flex items-center justify-between">
+            <span class="font-sans text-slate-500">Input:</span>
+            <code class="text-emerald-700 font-medium">data/people/*.xlsx</code>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="font-sans text-slate-500">Archive:</span>
+            <code class="text-slate-500">data/people/processed/</code>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+        <button type="button" onclick="executeSync('people')" id="btn-sync-people" class="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs transition-colors shadow-xs cursor-pointer text-center">
+          Scan & Import Now
+        </button>
+      </div>
+    </div>
+
+  </div>
+</section>
+{{end}}
