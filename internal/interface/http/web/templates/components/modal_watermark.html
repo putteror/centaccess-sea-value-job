@@ -25,10 +25,13 @@
       <!-- Target Info Card -->
       <div id="wmModalDeviceInfoCard" class="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-1">
         <div class="flex items-center justify-between">
-          <span class="font-bold text-slate-900 text-xs" id="wmModalDeviceName">--</span>
-          <span class="font-mono text-[11px] text-slate-500" id="wmModalDeviceIP">--</span>
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="font-bold text-slate-900 text-xs truncate" id="wmModalDeviceName">--</span>
+            <span id="wmModalDeviceCode" class="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-blue-100 text-blue-800 border border-blue-200 hidden">--</span>
+          </div>
+          <span class="font-mono text-[11px] text-slate-500 shrink-0" id="wmModalDeviceIP">--</span>
         </div>
-        <div class="text-[11px] text-slate-400 font-mono" id="wmModalDeviceID">--</div>
+        <div class="text-[11px] text-slate-400 font-mono truncate" id="wmModalDeviceID">--</div>
       </div>
 
       <!-- Attendance Watermark Section -->

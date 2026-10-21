@@ -24,6 +24,10 @@ func TestDevicesJsonSeparation(t *testing.T) {
 		HTTPPort:      "9090",
 		ExportBaseDir: "./data",
 		LogLevel:      "info",
+		Jobs: JobsConfig{
+			Attendance: AttendanceJobConfig{MaxLookbackDays: 60},
+			Help:       HelpJobConfig{MaxLookbackDays: 60},
+		},
 		Schedules: []ScheduleConfig{
 			{ID: "sch_1", Name: "Schedule 1", Type: "attendance", CronSchedule: "0 */2 * * *", Enabled: true},
 		},

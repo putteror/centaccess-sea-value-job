@@ -412,6 +412,7 @@ func (h *ConfigHandler) GetDevices(w http.ResponseWriter, r *http.Request) {
 		"devices":              devices,
 		"targetDeviceNames":    h.cfg.Jobs.Overtime.TargetDeviceNames,
 		"targetDeviceIds":      h.cfg.Jobs.Overtime.TargetDeviceIDs,
+		"targetDeviceCodes":    h.cfg.Jobs.Overtime.TargetDeviceCodes,
 		"initialLookbackHours": h.cfg.Jobs.Attendance.InitialLookbackHours,
 		"maxLookbackDays":      h.cfg.Jobs.Attendance.MaxLookbackDays,
 	})
@@ -438,6 +439,7 @@ func (h *ConfigHandler) SyncDevicesFromCentAccess(w http.ResponseWriter, r *http
 		"devices":              devices,
 		"targetDeviceNames":    h.cfg.Jobs.Overtime.TargetDeviceNames,
 		"targetDeviceIds":      h.cfg.Jobs.Overtime.TargetDeviceIDs,
+		"targetDeviceCodes":    h.cfg.Jobs.Overtime.TargetDeviceCodes,
 		"initialLookbackHours": h.cfg.Jobs.Attendance.InitialLookbackHours,
 		"maxLookbackDays":      h.cfg.Jobs.Attendance.MaxLookbackDays,
 	})
@@ -447,6 +449,7 @@ type UpdateDevicesConfigRequest struct {
 	Devices              []model.DeviceItem `json:"devices"`
 	TargetDeviceNames    []string           `json:"targetDeviceNames"`
 	TargetDeviceIDs      []string           `json:"targetDeviceIds"`
+	TargetDeviceCodes    []string           `json:"targetDeviceCodes,omitempty"`
 	InitialLookbackHours *int               `json:"initialLookbackHours,omitempty"`
 	MaxLookbackDays      *int               `json:"maxLookbackDays,omitempty"`
 }
@@ -477,6 +480,7 @@ func (h *ConfigHandler) UpdateDevicesConfig(w http.ResponseWriter, r *http.Reque
 		"message":           "Device configuration updated successfully.",
 		"targetDeviceNames": req.TargetDeviceNames,
 		"targetDeviceIds":   req.TargetDeviceIDs,
+		"targetDeviceCodes": h.cfg.Jobs.Overtime.TargetDeviceCodes,
 	})
 }
 

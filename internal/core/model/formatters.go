@@ -42,21 +42,24 @@ func FormatAccessRecordsToTXT(records []AccessRecord) string {
 		scanDate := recTimeBkk.Format("20060102")
 		scanTime := recTimeBkk.Format("150405")
 
-		deviceName := strings.TrimSpace(r.AccessControlDeviceName)
-		if deviceName == "" {
-			deviceName = strings.TrimSpace(r.AccessControlDeviceID)
+		deviceIdentifier := strings.TrimSpace(r.AccessControlDeviceCode)
+		if deviceIdentifier == "" {
+			deviceIdentifier = strings.TrimSpace(r.AccessControlDeviceName)
 		}
-		if deviceName == "" {
-			deviceName = "UNKNOWN"
+		if deviceIdentifier == "" {
+			deviceIdentifier = strings.TrimSpace(r.AccessControlDeviceID)
+		}
+		if deviceIdentifier == "" {
+			deviceIdentifier = "UNKNOWN"
 		}
 
-		sb.WriteString(fmt.Sprintf("%s %s %s %s\n", personIdentifier, scanDate, scanTime, deviceName))
+		sb.WriteString(fmt.Sprintf("%s %s %s %s\n", personIdentifier, scanDate, scanTime, deviceIdentifier))
 	}
 	return sb.String()
 }
 
 // FormatHelpRecordsToTXT formats a list of HelpRecord items into standard 7-column TXT format:
-// person_code check_in_date check_in_time check_out_date check_out_time device_name help_department
+// person_code check_in_date check_in_time check_out_date check_out_time device_code/name help_department
 func FormatHelpRecordsToTXT(records []HelpRecord, fallbackDate time.Time) string {
 	bkk := GetBangkokLocation()
 	if fallbackDate.IsZero() {
@@ -89,12 +92,15 @@ func FormatHelpRecordsToTXT(records []HelpRecord, fallbackDate time.Time) string
 			checkOutTime = outTimeBkk.Format("150405")
 		}
 
-		deviceName := strings.TrimSpace(r.AccessControlDeviceName)
-		if deviceName == "" {
-			deviceName = strings.TrimSpace(r.AccessControlDeviceID)
+		deviceIdentifier := strings.TrimSpace(r.AccessControlDeviceCode)
+		if deviceIdentifier == "" {
+			deviceIdentifier = strings.TrimSpace(r.AccessControlDeviceName)
 		}
-		if deviceName == "" {
-			deviceName = "UNKNOWN"
+		if deviceIdentifier == "" {
+			deviceIdentifier = strings.TrimSpace(r.AccessControlDeviceID)
+		}
+		if deviceIdentifier == "" {
+			deviceIdentifier = "UNKNOWN"
 		}
 
 		helpDepartment := strings.TrimSpace(r.HelpDepartment)
@@ -117,7 +123,7 @@ func FormatHelpRecordsToTXT(records []HelpRecord, fallbackDate time.Time) string
 			checkInTime,
 			checkOutDate,
 			checkOutTime,
-			deviceName,
+			deviceIdentifier,
 			helpDepartment,
 		))
 	}

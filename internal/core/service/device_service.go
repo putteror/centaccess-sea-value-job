@@ -18,7 +18,7 @@ type DeviceService interface {
 	SyncDevicesFromCentAccess(ctx context.Context) ([]model.DeviceItem, error)
 	UpdateDevicesConfig(ctx context.Context, devices []model.DeviceItem, targetNames, targetIDs []string, initialLookbackHours, maxLookbackDays *int) error
 	SetDeviceWatermarks(ctx context.Context, deviceID string, attTime, helpTime *string) error
-	IsOTDevice(deviceName, deviceID string) bool
+	IsOTDevice(deviceName, deviceID string, deviceCode ...string) bool
 }
 
 type deviceServiceImpl struct {
@@ -33,25 +33,50 @@ func NewDeviceService(cfg *config.Config, apiClient port.DeviceAPIPort) DeviceSe
 	}
 }
 
-// IsOTDevice checks whether a device matches the configured OT keywords or target IDs
-func (s *deviceServiceImpl) IsOTDevice(deviceName, deviceID string) bool {
+// IsOTDevice checks whether a device matches the configured OT keywords, codes, or target IDs
+func (s *deviceServiceImpl) IsOTDevice(deviceName, deviceID string, deviceCode ...string) bool {
 	targetNames := s.cfg.Jobs.Overtime.TargetDeviceNames
 	targetIDs := s.cfg.Jobs.Overtime.TargetDeviceIDs
+	targetCodes := s.cfg.Jobs.Overtime.TargetDeviceCodes
 
+	var code string
+	if len(deviceCode) > 0 {
+		code = strings.TrimSpace(deviceCode[0])
+	}
+
+	// 1. Check TargetDeviceCodes
+	if code != "" {
+		for _, c := range targetCodes {
+			tC := strings.TrimSpace(c)
+			if tC != "" && strings.EqualFold(code, tC) {
+				return true
+			}
+		}
+	}
+
+	// 2. Check TargetDeviceIDs
 	trimmedID := strings.TrimSpace(deviceID)
 	for _, id := range targetIDs {
 		tID := strings.TrimSpace(id)
-		if tID != "" && strings.EqualFold(trimmedID, tID) {
+		if tID != "" && (strings.EqualFold(trimmedID, tID) || (code != "" && strings.EqualFold(code, tID))) {
 			return true
 		}
 	}
 
+	// 3. Check TargetDeviceNames (also check keyword in code)
 	trimmedName := strings.TrimSpace(deviceName)
 	lowerName := strings.ToLower(trimmedName)
+	lowerCode := strings.ToLower(code)
 	for _, name := range targetNames {
 		tName := strings.TrimSpace(name)
-		if tName != "" && (strings.EqualFold(trimmedName, tName) || strings.Contains(lowerName, strings.ToLower(tName))) {
-			return true
+		if tName != "" {
+			lowerTarget := strings.ToLower(tName)
+			if strings.EqualFold(trimmedName, tName) || strings.Contains(lowerName, lowerTarget) {
+				return true
+			}
+			if code != "" && (strings.EqualFold(code, tName) || strings.Contains(lowerCode, lowerTarget)) {
+				return true
+			}
 		}
 	}
 	return false
@@ -66,7 +91,7 @@ func (s *deviceServiceImpl) GetDevices(ctx context.Context) ([]model.DeviceItem,
 		if err == nil && len(discovered) > 0 {
 			for i := range discovered {
 				discovered[i].Enabled = true
-				if s.IsOTDevice(discovered[i].Name, discovered[i].ID) {
+				if s.IsOTDevice(discovered[i].Name, discovered[i].ID, discovered[i].GetCode()) {
 					discovered[i].IsOT = true
 				}
 			}
@@ -75,7 +100,7 @@ func (s *deviceServiceImpl) GetDevices(ctx context.Context) ([]model.DeviceItem,
 		}
 	} else {
 		for i := range devices {
-			if s.IsOTDevice(devices[i].Name, devices[i].ID) {
+			if s.IsOTDevice(devices[i].Name, devices[i].ID, devices[i].GetCode()) {
 				devices[i].IsOT = true
 			}
 		}
@@ -97,6 +122,9 @@ func (s *deviceServiceImpl) SyncDevicesFromCentAccess(ctx context.Context) ([]mo
 		if d.ID != "" {
 			existingMap[d.ID] = d
 		}
+		if d.GetCode() != "" {
+			existingMap[d.GetCode()] = d
+		}
 		if d.Name != "" {
 			existingMap[d.Name] = d
 		}
@@ -104,21 +132,29 @@ func (s *deviceServiceImpl) SyncDevicesFromCentAccess(ctx context.Context) ([]mo
 
 	for i := range discovered {
 		d := &discovered[i]
-		if old, exists := existingMap[d.ID]; exists {
+		var old model.DeviceItem
+		var found bool
+		if o, ok := existingMap[d.ID]; ok && d.ID != "" {
+			old, found = o, true
+		} else if o, ok := existingMap[d.GetCode()]; ok && d.GetCode() != "" {
+			old, found = o, true
+		} else if o, ok := existingMap[d.Name]; ok && d.Name != "" {
+			old, found = o, true
+		}
+
+		if found {
 			d.IsOT = old.IsOT
 			d.Enabled = old.Enabled
 			d.AttendanceLastSyncTime = old.AttendanceLastSyncTime
 			d.HelpLastSyncTime = old.HelpLastSyncTime
 			d.LastSyncTime = old.LastSyncTime
-		} else if old, exists := existingMap[d.Name]; exists {
-			d.IsOT = old.IsOT
-			d.Enabled = old.Enabled
-			d.AttendanceLastSyncTime = old.AttendanceLastSyncTime
-			d.HelpLastSyncTime = old.HelpLastSyncTime
-			d.LastSyncTime = old.LastSyncTime
+			if d.GetCode() == "" && old.GetCode() != "" {
+				d.Code = old.GetCode()
+				d.AccessControlDeviceCode = old.GetCode()
+			}
 		} else {
 			d.Enabled = true
-			if s.IsOTDevice(d.Name, d.ID) {
+			if s.IsOTDevice(d.Name, d.ID, d.GetCode()) {
 				d.IsOT = true
 			}
 		}
@@ -134,7 +170,7 @@ func (s *deviceServiceImpl) SyncDevicesFromCentAccess(ctx context.Context) ([]mo
 // UpdateDevicesConfig updates devices and OT matching rules in devices.json and config.json
 func (s *deviceServiceImpl) UpdateDevicesConfig(ctx context.Context, devices []model.DeviceItem, targetNames, targetIDs []string, initialLookbackHours, maxLookbackDays *int) error {
 	for i := range devices {
-		if s.IsOTDevice(devices[i].Name, devices[i].ID) {
+		if s.IsOTDevice(devices[i].Name, devices[i].ID, devices[i].GetCode()) {
 			devices[i].IsOT = true
 		}
 	}

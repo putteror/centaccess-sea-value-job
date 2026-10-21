@@ -38,21 +38,36 @@ func NewAttendanceSyncService(cfg *config.Config, apiClient port.CentAccessAPIPo
 	}
 }
 
-func isOTDevice(deviceName, deviceID string, targetNames, targetIDs []string) bool {
+func isOTDevice(deviceName, deviceID, deviceCode string, targetNames, targetIDs, targetCodes []string) bool {
+	trimmedCode := strings.TrimSpace(deviceCode)
+	for _, code := range targetCodes {
+		tCode := strings.TrimSpace(code)
+		if tCode != "" && trimmedCode != "" && strings.EqualFold(trimmedCode, tCode) {
+			return true
+		}
+	}
+
 	trimmedID := strings.TrimSpace(deviceID)
 	for _, id := range targetIDs {
 		tID := strings.TrimSpace(id)
-		if tID != "" && strings.EqualFold(trimmedID, tID) {
+		if tID != "" && (strings.EqualFold(trimmedID, tID) || (trimmedCode != "" && strings.EqualFold(trimmedCode, tID))) {
 			return true
 		}
 	}
 
 	trimmedName := strings.TrimSpace(deviceName)
 	lowerName := strings.ToLower(trimmedName)
+	lowerCode := strings.ToLower(trimmedCode)
 	for _, name := range targetNames {
 		tName := strings.TrimSpace(name)
-		if tName != "" && (strings.EqualFold(trimmedName, tName) || strings.Contains(lowerName, strings.ToLower(tName))) {
-			return true
+		if tName != "" {
+			lowerTarget := strings.ToLower(tName)
+			if strings.EqualFold(trimmedName, tName) || strings.Contains(lowerName, lowerTarget) {
+				return true
+			}
+			if trimmedCode != "" && (strings.EqualFold(trimmedCode, tName) || strings.Contains(lowerCode, lowerTarget)) {
+				return true
+			}
 		}
 	}
 	return false
@@ -98,15 +113,30 @@ func (s *attendanceSyncServiceImpl) SyncAttendance(ctx context.Context, start ti
 	if len(otIDs) == 0 {
 		otIDs = s.cfg.Jobs.Attendance.ExcludeDeviceIDs
 	}
+	otCodes := s.cfg.Jobs.Overtime.TargetDeviceCodes
+	if len(otCodes) == 0 {
+		otCodes = s.cfg.Jobs.Attendance.ExcludeDeviceCodes
+	}
 
 	// Split into Attendance (General) and Overtime (OT Gate) & track per-device max timestamps
 	var attendanceRecords []model.AccessRecord
 	var overtimeRecords []model.AccessRecord
 	deviceMaxTimes := make(map[string]time.Time)
 
-	// Build map of existing attendance last sync times per device
+	// Build map of existing attendance last sync times and code lookup per device
 	deviceLastSyncMap := make(map[string]time.Time)
+	deviceCodeLookup := make(map[string]string)
 	for _, d := range s.cfg.GetDevices() {
+		code := d.GetCode()
+		if code != "" {
+			if d.ID != "" {
+				deviceCodeLookup[strings.TrimSpace(d.ID)] = code
+			}
+			if d.Name != "" {
+				deviceCodeLookup[strings.TrimSpace(d.Name)] = code
+			}
+		}
+
 		timeStr := strings.TrimSpace(d.AttendanceLastSyncTime)
 		if timeStr == "" {
 			timeStr = strings.TrimSpace(d.LastSyncTime)
@@ -116,6 +146,9 @@ func (s *attendanceSyncServiceImpl) SyncAttendance(ctx context.Context, start ti
 				if t, err := time.Parse(fmtStr, timeStr); err == nil && !t.IsZero() {
 					if d.ID != "" {
 						deviceLastSyncMap[strings.TrimSpace(d.ID)] = t
+					}
+					if code != "" {
+						deviceLastSyncMap[strings.TrimSpace(code)] = t
 					}
 					if d.Name != "" {
 						deviceLastSyncMap[strings.TrimSpace(d.Name)] = t
@@ -127,11 +160,29 @@ func (s *attendanceSyncServiceImpl) SyncAttendance(ctx context.Context, start ti
 	}
 
 	for _, r := range allRecords {
+		// Filter to only include successful access records (skip FAILED, DENIED, etc.)
+		if r.Result != "" && !strings.EqualFold(strings.TrimSpace(r.Result), "SUCCESS") {
+			continue
+		}
+
 		devID := strings.TrimSpace(r.AccessControlDeviceID)
 		devName := strings.TrimSpace(r.AccessControlDeviceName)
 
+		// Enrich AccessControlDeviceCode from local device registry if API response did not provide it
+		if r.AccessControlDeviceCode == "" {
+			if c, ok := deviceCodeLookup[devID]; ok {
+				r.AccessControlDeviceCode = c
+			} else if c, ok := deviceCodeLookup[devName]; ok {
+				r.AccessControlDeviceCode = c
+			}
+		}
+		devCode := strings.TrimSpace(r.AccessControlDeviceCode)
+
 		if devID != "" && r.RecordTime.After(deviceMaxTimes[devID]) {
 			deviceMaxTimes[devID] = r.RecordTime
+		}
+		if devCode != "" && r.RecordTime.After(deviceMaxTimes[devCode]) {
+			deviceMaxTimes[devCode] = r.RecordTime
 		}
 		if devName != "" && r.RecordTime.After(deviceMaxTimes[devName]) {
 			deviceMaxTimes[devName] = r.RecordTime
@@ -143,6 +194,10 @@ func (s *attendanceSyncServiceImpl) SyncAttendance(ctx context.Context, start ti
 				if !r.RecordTime.After(lastTime) {
 					continue
 				}
+			} else if devCode != "" && deviceLastSyncMap[devCode] != (time.Time{}) {
+				if !r.RecordTime.After(deviceLastSyncMap[devCode]) {
+					continue
+				}
 			} else if lastTime, exists := deviceLastSyncMap[devName]; exists && !lastTime.IsZero() {
 				if !r.RecordTime.After(lastTime) {
 					continue
@@ -150,7 +205,7 @@ func (s *attendanceSyncServiceImpl) SyncAttendance(ctx context.Context, start ti
 			}
 		}
 
-		if isOTDevice(r.AccessControlDeviceName, r.AccessControlDeviceID, otNames, otIDs) {
+		if isOTDevice(r.AccessControlDeviceName, r.AccessControlDeviceID, r.AccessControlDeviceCode, otNames, otIDs, otCodes) {
 			overtimeRecords = append(overtimeRecords, r)
 		} else {
 			attendanceRecords = append(attendanceRecords, r)
@@ -233,16 +288,48 @@ func (s *attendanceSyncServiceImpl) exportAccessRecordsTXT(ctx context.Context, 
 	if len(otIDs) == 0 {
 		otIDs = s.cfg.Jobs.Attendance.ExcludeDeviceIDs
 	}
+	otCodes := s.cfg.Jobs.Overtime.TargetDeviceCodes
+	if len(otCodes) == 0 {
+		otCodes = s.cfg.Jobs.Attendance.ExcludeDeviceCodes
+	}
+
+	deviceCodeLookup := make(map[string]string)
+	for _, d := range s.cfg.GetDevices() {
+		code := d.GetCode()
+		if code != "" {
+			if d.ID != "" {
+				deviceCodeLookup[strings.TrimSpace(d.ID)] = code
+			}
+			if d.Name != "" {
+				deviceCodeLookup[strings.TrimSpace(d.Name)] = code
+			}
+		}
+	}
 
 	var filteredRecords []model.AccessRecord
 	for _, r := range allRecords {
-		devID := strings.TrimSpace(r.AccessControlDeviceID)
-		devName := strings.TrimSpace(r.AccessControlDeviceName)
-		if len(deviceFilterMap) > 0 && !deviceFilterMap[devID] && !deviceFilterMap[devName] {
+		// Filter to only include successful access records
+		if r.Result != "" && !strings.EqualFold(strings.TrimSpace(r.Result), "SUCCESS") {
 			continue
 		}
 
-		isOT := isOTDevice(r.AccessControlDeviceName, r.AccessControlDeviceID, otNames, otIDs)
+		devID := strings.TrimSpace(r.AccessControlDeviceID)
+		devName := strings.TrimSpace(r.AccessControlDeviceName)
+
+		if r.AccessControlDeviceCode == "" {
+			if c, ok := deviceCodeLookup[devID]; ok {
+				r.AccessControlDeviceCode = c
+			} else if c, ok := deviceCodeLookup[devName]; ok {
+				r.AccessControlDeviceCode = c
+			}
+		}
+		devCode := strings.TrimSpace(r.AccessControlDeviceCode)
+
+		if len(deviceFilterMap) > 0 && !deviceFilterMap[devID] && !deviceFilterMap[devCode] && !deviceFilterMap[devName] {
+			continue
+		}
+
+		isOT := isOTDevice(r.AccessControlDeviceName, r.AccessControlDeviceID, r.AccessControlDeviceCode, otNames, otIDs, otCodes)
 		if isOvertime && !isOT {
 			continue
 		}

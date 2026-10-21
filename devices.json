@@ -1,22 +1,68 @@
 [
   {
-    "id": "021c616e-7e0a-4a1a-b12f-ce9f0e9a98dc",
-    "name": "sdfsd",
-    "ipAddress": "192.168.1.66",
+    "id": "9876ea27-8550-4d0f-90e1-f57f5dfa5df5",
+    "name": "Shenxing E75",
+    "ipAddress": "192.168.1.107",
     "status": "OFFLINE",
     "isOt": true,
     "enabled": true,
-    "attendanceLastSyncTime": "2026-09-30T17:55:00+07:00",
-    "lastSyncTime": "2026-09-30T17:55:00+07:00"
+    "attendanceLastSyncTime": "2026-10-21T17:22:00+07:00",
+    "helpLastSyncTime": "2026-10-21T17:18:50+07:00",
+    "lastSyncTime": "2026-10-21T17:22:00+07:00"
   },
   {
-    "id": "86890b63-955f-4ea7-84ad-8f644880e0c5",
-    "name": "shenxing_e88",
-    "ipAddress": "10.243.101.29",
+    "id": "5a2e0d16-b743-4b88-b2f7-af7c89d75411",
+    "name": "Shenxing_E88",
+    "ipAddress": "192.168.1.108",
+    "status": "ONLINE",
+    "isOt": true,
+    "enabled": true,
+    "attendanceLastSyncTime": "2026-10-21T17:22:00+07:00",
+    "helpLastSyncTime": "2026-10-21T17:18:50+07:00",
+    "lastSyncTime": "2026-10-21T17:22:00+07:00"
+  },
+  {
+    "id": "0908bf9f-173b-494f-9b88-b784d1969961",
+    "name": "UFACEX",
+    "ipAddress": "192.168.1.88",
     "status": "OFFLINE",
     "isOt": false,
     "enabled": true,
-    "attendanceLastSyncTime": "2026-09-30T17:55:00+07:00",
-    "lastSyncTime": "2026-09-30T17:55:00+07:00"
+    "attendanceLastSyncTime": "2026-10-21T17:22:00+07:00",
+    "helpLastSyncTime": "2026-10-21T17:18:50+07:00",
+    "lastSyncTime": "2026-10-21T17:22:00+07:00"
+  },
+  {
+    "id": "b636717f-7a61-4b48-855b-d02f6070488a",
+    "name": "Frontservice",
+    "ipAddress": "10.0.1.129",
+    "status": "OFFLINE",
+    "isOt": false,
+    "enabled": true,
+    "attendanceLastSyncTime": "2026-10-21T17:22:00+07:00",
+    "helpLastSyncTime": "2026-10-21T17:18:50+07:00",
+    "lastSyncTime": "2026-10-21T17:22:00+07:00"
+  },
+  {
+    "id": "504079a4-fd06-4c4b-91b2-d707099cb5f8",
+    "name": "Home",
+    "ipAddress": "192.168.1.89",
+    "status": "OFFLINE",
+    "isOt": false,
+    "enabled": true,
+    "attendanceLastSyncTime": "2026-10-21T17:22:00+07:00",
+    "helpLastSyncTime": "2026-10-21T17:18:50+07:00",
+    "lastSyncTime": "2026-10-21T17:22:00+07:00"
+  },
+  {
+    "id": "e7feda82-d767-4ef8-a45b-29c9c4717f7a",
+    "name": "service",
+    "ipAddress": "10.0.1.134",
+    "status": "OFFLINE",
+    "isOt": false,
+    "enabled": true,
+    "attendanceLastSyncTime": "2026-10-21T17:22:00+07:00",
+    "helpLastSyncTime": "2026-10-21T17:18:50+07:00",
+    "lastSyncTime": "2026-10-21T17:22:00+07:00"
   }
 ]

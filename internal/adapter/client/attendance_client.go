@@ -35,6 +35,7 @@ func (c *CentAccessAPIClient) FetchAccessRecords(ctx context.Context, start time
 		params.Set("endDateTime", end.Format(time.RFC3339))
 		params.Set("page", strconv.Itoa(page))
 		params.Set("limit", strconv.Itoa(limit))
+		params.Set("result", "SUCCESS")
 
 		reqURL := fmt.Sprintf("%s/api/access-records/?%s", c.cfg.AppAPIURL, params.Encode())
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)

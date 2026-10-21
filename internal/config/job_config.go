@@ -11,6 +11,7 @@ type AttendanceJobConfig struct {
 	MaxLookbackDays      int      `json:"maxLookbackDays,omitempty"`      // Max safety cap days to look back (default 7 days)
 	ExcludeDeviceNames   []string `json:"excludeDeviceNames,omitempty"`
 	ExcludeDeviceIDs     []string `json:"excludeDeviceIds,omitempty"`
+	ExcludeDeviceCodes   []string `json:"excludeDeviceCodes,omitempty"`
 }
 
 // OvertimeJobConfig defines settings specific to overtime (access records filtered by OT devices)
@@ -23,6 +24,7 @@ type OvertimeJobConfig struct {
 	MaxLookbackDays      int      `json:"maxLookbackDays,omitempty"`
 	TargetDeviceNames    []string `json:"targetDeviceNames,omitempty"`
 	TargetDeviceIDs      []string `json:"targetDeviceIds,omitempty"`
+	TargetDeviceCodes    []string `json:"targetDeviceCodes,omitempty"`
 }
 
 // HelpJobConfig defines settings specific to CentAccess Help / Overtime records API

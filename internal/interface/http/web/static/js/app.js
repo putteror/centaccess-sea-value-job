@@ -195,16 +195,21 @@ function renderExportDeviceList() {
 
   container.innerHTML = devices.map(d => {
     const isOt = d.isOt;
+    const devCode = d.accessControlDeviceCode || d.code || '';
     const otBadge = isOt 
       ? '<span class="px-1.5 py-0.2 rounded text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">OT Gate</span>'
       : '<span class="px-1.5 py-0.2 rounded text-[10px] font-medium bg-slate-100 text-slate-600">Standard</span>';
+    const codeBadge = devCode
+      ? `<span class="px-1.5 py-0.2 rounded text-[10px] font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">Code: ${devCode}</span>`
+      : '';
     
     return `
-      <label class="export-dev-item flex items-center justify-between p-1.5 rounded hover:bg-white transition-colors cursor-pointer text-xs" data-name="${(d.name||'').toLowerCase()}" data-id="${(d.id||'').toLowerCase()}">
+      <label class="export-dev-item flex items-center justify-between p-1.5 rounded hover:bg-white transition-colors cursor-pointer text-xs" data-name="${(d.name||'').toLowerCase()}" data-id="${(d.id||'').toLowerCase()}" data-code="${devCode.toLowerCase()}">
         <div class="flex items-center gap-2">
           <input type="checkbox" value="${d.id || d.name}" class="export-dev-checkbox rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5" checked onchange="updateExportDeviceCountBadge()">
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap">
             <span class="font-medium text-slate-900">${d.name || 'Unnamed Device'}</span>
+            ${codeBadge}
             ${otBadge}
             <span class="text-[10px] text-slate-400 font-mono">(${d.id || 'N/A'})</span>
           </div>
@@ -240,7 +245,8 @@ function filterExportDeviceList() {
   items.forEach(item => {
     const name = item.getAttribute('data-name') || '';
     const id = item.getAttribute('data-id') || '';
-    if (!search || name.includes(search) || id.includes(search)) {
+    const code = item.getAttribute('data-code') || '';
+    if (!search || name.includes(search) || id.includes(search) || code.includes(search)) {
       item.style.display = 'flex';
     } else {
       item.style.display = 'none';
@@ -569,6 +575,12 @@ async function loadDevices() {
         kwInput.value = data.targetDeviceNames.join(', ');
       }
 
+      // Populate target device codes input
+      const codesInput = document.getElementById('devRegistry_target_codes');
+      if (codesInput && data.targetDeviceCodes) {
+        codesInput.value = data.targetDeviceCodes.join(', ');
+      }
+
       // Populate lookback & limit settings
       const initLbInput = document.getElementById('job_initial_lookback_hours');
       if (initLbInput && data.initialLookbackHours !== undefined) {
@@ -596,10 +608,12 @@ function renderDeviceRegistry() {
     if (activeDeviceFilter === 'normal' && d.isOt) return false;
 
     if (!query) return true;
+    const devCode = d.accessControlDeviceCode || d.code || '';
     const nameMatch = d.name && d.name.toLowerCase().includes(query);
     const idMatch = d.id && d.id.toLowerCase().includes(query);
+    const codeMatch = devCode && devCode.toLowerCase().includes(query);
     const ipMatch = d.ipAddress && d.ipAddress.toLowerCase().includes(query);
-    return nameMatch || idMatch || ipMatch;
+    return nameMatch || idMatch || codeMatch || ipMatch;
   });
 
   // Calculate stats
@@ -661,6 +675,11 @@ function renderDeviceRegistry() {
       }
     }
 
+    const devCode = d.accessControlDeviceCode || d.code || '';
+    const codeBadge = devCode
+      ? `<span class="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200">Code: ${devCode}</span>`
+      : '';
+
     const otBadge = isOt
       ? '<span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">OT Gate</span>'
       : '<span class="text-[10px] font-semibold px-2 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">Standard</span>';
@@ -678,6 +697,7 @@ function renderDeviceRegistry() {
           <div class="space-y-1 min-w-0">
             <div class="flex flex-wrap items-center gap-2">
               <span class="font-bold text-sm text-slate-900 truncate">${d.name || 'Unnamed Device'}</span>
+              ${codeBadge}
               ${otBadge}
               ${statusBadge}
             </div>
@@ -818,6 +838,12 @@ async function saveDeviceRegistry() {
     .map(k => k.trim())
     .filter(k => k.length > 0);
 
+  const codesInput = document.getElementById('devRegistry_target_codes')?.value || '';
+  const targetCodes = codesInput
+    .split(',')
+    .map(c => c.trim())
+    .filter(c => c.length > 0);
+
   const extraIdsInput = document.getElementById('devRegistry_extra_ids').value;
   const extraIds = extraIdsInput
     .split(',')
@@ -834,6 +860,7 @@ async function saveDeviceRegistry() {
 
   const payload = {
     targetDeviceNames: keywords,
+    targetDeviceCodes: targetCodes,
     targetDeviceIds: Array.from(otIds),
     devices: devices,
     initialLookbackHours: isNaN(initLbVal) ? 24 : initLbVal,
@@ -913,6 +940,18 @@ function openEditWatermarkModal(devId) {
   document.getElementById('wmModalSubtitle').textContent = 'ปรับตั้งค่าเวลา Last Sync ของเครื่องนี้สำหรับการดึงข้อมูลรอบถัดไป';
   document.getElementById('wmModalDeviceInfoCard').classList.remove('hidden');
   document.getElementById('wmModalDeviceName').textContent = d.name || 'Unnamed Device';
+  
+  const codeSpan = document.getElementById('wmModalDeviceCode');
+  const devCode = d.accessControlDeviceCode || d.code || '';
+  if (codeSpan) {
+    if (devCode) {
+      codeSpan.textContent = `Code: ${devCode}`;
+      codeSpan.classList.remove('hidden');
+    } else {
+      codeSpan.classList.add('hidden');
+    }
+  }
+
   document.getElementById('wmModalDeviceIP').textContent = d.ipAddress ? `IP: ${d.ipAddress}` : '';
   document.getElementById('wmModalDeviceID').textContent = `Device ID: ${d.id}`;
 
@@ -942,6 +981,11 @@ function openBulkWatermarkModal() {
   document.getElementById('wmModalSubtitle').textContent = 'ปรับตั้งค่าเวลา Last Sync พร้อมกันทุกเครื่องที่ลงทะเบียนไว้';
   document.getElementById('wmModalDeviceInfoCard').classList.remove('hidden');
   document.getElementById('wmModalDeviceName').textContent = `All Registered Devices (${devices.length} Total)`;
+  
+  const codeSpan = document.getElementById('wmModalDeviceCode');
+  if (codeSpan) {
+    codeSpan.classList.add('hidden');
+  }
   document.getElementById('wmModalDeviceIP').textContent = 'Global Watermark Update';
   document.getElementById('wmModalDeviceID').textContent = 'บันทึกเวลา Last Sync ให้เครื่องสแกนทุกเครื่องพร้อมกัน รวมถึงค่ากลางใน config.json';
 

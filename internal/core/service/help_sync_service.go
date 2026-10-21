@@ -65,15 +65,29 @@ func (s *helpSyncServiceImpl) SyncHelp(ctx context.Context, start time.Time, end
 	// Track max timestamp per device and filter records already synced
 	deviceMaxTimes := make(map[string]time.Time)
 
-	// Build map of existing help last sync times per device
+	// Build map of existing help last sync times and device code lookup per device
 	deviceLastSyncMap := make(map[string]time.Time)
+	deviceCodeLookup := make(map[string]string)
 	for _, d := range s.cfg.GetDevices() {
+		code := d.GetCode()
+		if code != "" {
+			if d.ID != "" {
+				deviceCodeLookup[strings.TrimSpace(d.ID)] = code
+			}
+			if d.Name != "" {
+				deviceCodeLookup[strings.TrimSpace(d.Name)] = code
+			}
+		}
+
 		timeStr := strings.TrimSpace(d.HelpLastSyncTime)
 		if timeStr != "" {
 			for _, fmtStr := range []string{time.RFC3339, "2006-01-02T15:04:05", "2006-01-02 15:04:05"} {
 				if t, err := time.Parse(fmtStr, timeStr); err == nil && !t.IsZero() {
 					if d.ID != "" {
 						deviceLastSyncMap[strings.TrimSpace(d.ID)] = t
+					}
+					if code != "" {
+						deviceLastSyncMap[strings.TrimSpace(code)] = t
 					}
 					if d.Name != "" {
 						deviceLastSyncMap[strings.TrimSpace(d.Name)] = t
@@ -88,6 +102,16 @@ func (s *helpSyncServiceImpl) SyncHelp(ctx context.Context, start time.Time, end
 	for _, r := range records {
 		devID := strings.TrimSpace(r.AccessControlDeviceID)
 		devName := strings.TrimSpace(r.AccessControlDeviceName)
+
+		if r.AccessControlDeviceCode == "" {
+			if c, ok := deviceCodeLookup[devID]; ok {
+				r.AccessControlDeviceCode = c
+			} else if c, ok := deviceCodeLookup[devName]; ok {
+				r.AccessControlDeviceCode = c
+			}
+		}
+		devCode := strings.TrimSpace(r.AccessControlDeviceCode)
+
 		var recTime time.Time
 		if r.CheckInTime != nil && !r.CheckInTime.IsZero() {
 			recTime = *r.CheckInTime
@@ -98,6 +122,9 @@ func (s *helpSyncServiceImpl) SyncHelp(ctx context.Context, start time.Time, end
 		if devID != "" && !recTime.IsZero() && recTime.After(deviceMaxTimes[devID]) {
 			deviceMaxTimes[devID] = recTime
 		}
+		if devCode != "" && !recTime.IsZero() && recTime.After(deviceMaxTimes[devCode]) {
+			deviceMaxTimes[devCode] = recTime
+		}
 		if devName != "" && !recTime.IsZero() && recTime.After(deviceMaxTimes[devName]) {
 			deviceMaxTimes[devName] = recTime
 		}
@@ -106,6 +133,10 @@ func (s *helpSyncServiceImpl) SyncHelp(ctx context.Context, start time.Time, end
 		if updateWatermark && !recTime.IsZero() {
 			if lastTime, exists := deviceLastSyncMap[devID]; exists && !lastTime.IsZero() {
 				if !recTime.After(lastTime) {
+					continue
+				}
+			} else if devCode != "" && deviceLastSyncMap[devCode] != (time.Time{}) {
+				if !recTime.After(deviceLastSyncMap[devCode]) {
 					continue
 				}
 			} else if lastTime, exists := deviceLastSyncMap[devName]; exists && !lastTime.IsZero() {
@@ -157,11 +188,34 @@ func (s *helpSyncServiceImpl) ExportHelpTXT(ctx context.Context, start, end time
 		}
 	}
 
+	deviceCodeLookup := make(map[string]string)
+	for _, d := range s.cfg.GetDevices() {
+		code := d.GetCode()
+		if code != "" {
+			if d.ID != "" {
+				deviceCodeLookup[strings.TrimSpace(d.ID)] = code
+			}
+			if d.Name != "" {
+				deviceCodeLookup[strings.TrimSpace(d.Name)] = code
+			}
+		}
+	}
+
 	var validRecords []model.HelpRecord
 	for _, r := range records {
 		devID := strings.TrimSpace(r.AccessControlDeviceID)
 		devName := strings.TrimSpace(r.AccessControlDeviceName)
-		if len(deviceFilterMap) > 0 && !deviceFilterMap[devID] && !deviceFilterMap[devName] {
+
+		if r.AccessControlDeviceCode == "" {
+			if c, ok := deviceCodeLookup[devID]; ok {
+				r.AccessControlDeviceCode = c
+			} else if c, ok := deviceCodeLookup[devName]; ok {
+				r.AccessControlDeviceCode = c
+			}
+		}
+		devCode := strings.TrimSpace(r.AccessControlDeviceCode)
+
+		if len(deviceFilterMap) > 0 && !deviceFilterMap[devID] && !deviceFilterMap[devCode] && !deviceFilterMap[devName] {
 			continue
 		}
 		validRecords = append(validRecords, r)

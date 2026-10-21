@@ -1,0 +1,50 @@
+# Binaries and compiled executables
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+bin/
+dist/
+
+# Deploy built binaries
+deploy/*.exe
+deploy/install.exe
+deploy/sea-value-job*
+!deploy/*.sh
+!deploy/**/*.go
+
+# Local environment & secrets
+.env
+.env.*
+!.env.example
+
+# Export & Generated runtime data files
+data/attendance/*
+!data/attendance/.gitkeep
+data/help/*
+!data/help/.gitkeep
+data/overtime/*
+!data/overtime/.gitkeep
+data/people/input/*
+!data/people/input/.gitkeep
+data/people/archive/*
+!data/people/archive/.gitkeep
+
+# Operating System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE and editor settings
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log

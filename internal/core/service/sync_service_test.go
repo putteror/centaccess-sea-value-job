@@ -13,11 +13,13 @@ import (
 func TestIsOTDevice(t *testing.T) {
 	targetNames := []string{"OT", "Gate OT", "Overtime"}
 	targetIDs := []string{"dev_ot_01", "DEV-OT-99"}
+	targetCodes := []string{"CODE_OT_01", "GATE_OT"}
 
 	tests := []struct {
 		name       string
 		deviceName string
 		deviceID   string
+		deviceCode string
 		expected   bool
 	}{
 		{
@@ -45,9 +47,24 @@ func TestIsOTDevice(t *testing.T) {
 			expected:   true,
 		},
 		{
+			name:       "Exact OT device Code",
+			deviceName: "General Gate",
+			deviceID:   "dev_unknown",
+			deviceCode: "CODE_OT_01",
+			expected:   true,
+		},
+		{
+			name:       "Exact OT device Code case-insensitive",
+			deviceName: "General Gate",
+			deviceID:   "dev_unknown",
+			deviceCode: "code_ot_01",
+			expected:   true,
+		},
+		{
 			name:       "Standard non-OT attendance turnstile",
 			deviceName: "Main Entrance Turnstile #1",
 			deviceID:   "dev_standard_01",
+			deviceCode: "ENT_01",
 			expected:   false,
 		},
 		{
@@ -60,9 +77,9 @@ func TestIsOTDevice(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := isOTDevice(tt.deviceName, tt.deviceID, targetNames, targetIDs)
+			got := isOTDevice(tt.deviceName, tt.deviceID, tt.deviceCode, targetNames, targetIDs, targetCodes)
 			if got != tt.expected {
-				t.Errorf("isOTDevice(%q, %q) = %v; want %v", tt.deviceName, tt.deviceID, got, tt.expected)
+				t.Errorf("isOTDevice(%q, %q, %q) = %v; want %v", tt.deviceName, tt.deviceID, tt.deviceCode, got, tt.expected)
 			}
 		})
 	}
@@ -336,4 +353,77 @@ func TestExportMethods(t *testing.T) {
 		t.Errorf("expected content to contain HELP001, got: %s", string(helpRes.Content))
 	}
 }
+
+func TestSyncAttendanceFiltersSuccessOnly(t *testing.T) {
+	cfg := &config.Config{
+		Jobs: config.JobsConfig{
+			Attendance: config.AttendanceJobConfig{},
+			Overtime:   config.OvertimeJobConfig{},
+		},
+	}
+
+	rawRecords := []model.AccessRecord{
+		{
+			PersonCode:              "EMP_SUCCESS_1",
+			AccessControlDeviceName: "Main Entrance",
+			AccessControlDeviceID:   "DEV_1",
+			Result:                  "SUCCESS",
+			RecordTime:              time.Now(),
+		},
+		{
+			PersonCode:              "EMP_FAILED_1",
+			AccessControlDeviceName: "Main Entrance",
+			AccessControlDeviceID:   "DEV_1",
+			Result:                  "FAILED",
+			RecordTime:              time.Now(),
+		},
+		{
+			PersonCode:              "EMP_DENIED_1",
+			AccessControlDeviceName: "Main Entrance",
+			AccessControlDeviceID:   "DEV_1",
+			Result:                  "DENIED",
+			RecordTime:              time.Now(),
+		},
+		{
+			PersonCode:              "EMP_SUCCESS_2",
+			AccessControlDeviceName: "Main Entrance",
+			AccessControlDeviceID:   "DEV_1",
+			Result:                  "success",
+			RecordTime:              time.Now(),
+		},
+	}
+
+	mockClient := &mockCentAccessClient{records: rawRecords}
+	mockStore := &mockStorage{}
+
+	service := NewAttendanceSyncService(cfg, mockClient, mockStore)
+
+	ctx := context.Background()
+	now := time.Now()
+	err := service.SyncAttendance(ctx, now, now, true)
+	if err != nil {
+		t.Fatalf("SyncAttendance returned error: %v", err)
+	}
+
+	// Only EMP_SUCCESS_1 and EMP_SUCCESS_2 should be written
+	if len(mockStore.writtenAttendance) != 2 {
+		t.Fatalf("expected 2 successful attendance records, got %d", len(mockStore.writtenAttendance))
+	}
+	if mockStore.writtenAttendance[0].PersonCode != "EMP_SUCCESS_1" || mockStore.writtenAttendance[1].PersonCode != "EMP_SUCCESS_2" {
+		t.Errorf("unexpected written records: %+v", mockStore.writtenAttendance)
+	}
+
+	// Test ExportAttendanceTXT as well
+	exportRes, err := service.ExportAttendanceTXT(ctx, now, now, nil)
+	if err != nil {
+		t.Fatalf("ExportAttendanceTXT returned error: %v", err)
+	}
+	if exportRes.RecordCount != 2 {
+		t.Errorf("expected export record count 2, got %d", exportRes.RecordCount)
+	}
+	if strings.Contains(string(exportRes.Content), "EMP_FAILED_1") || strings.Contains(string(exportRes.Content), "EMP_DENIED_1") {
+		t.Errorf("export content should not contain failed records: %s", string(exportRes.Content))
+	}
+}
+
 

@@ -229,23 +229,34 @@ func (c *Config) SaveDevices(devices []model.DeviceItem) error {
 		return fmt.Errorf("failed to write %s: %w", c.DevicesFilePath, err)
 	}
 
-	// 2. Update targetDeviceIds and targetDeviceNames in Jobs config as well
+	// 2. Update targetDeviceIds, targetDeviceCodes and targetDeviceNames in Jobs config as well
 	var otIds []string
+	var otCodes []string
 	for _, d := range devices {
-		if d.IsOT && d.ID != "" {
-			otIds = append(otIds, d.ID)
+		if d.IsOT {
+			if d.ID != "" {
+				otIds = append(otIds, d.ID)
+			}
+			code := d.GetCode()
+			if code != "" {
+				otCodes = append(otCodes, code)
+			}
 		}
 	}
 
 	c.Jobs.Overtime.TargetDeviceIDs = otIds
+	c.Jobs.Overtime.TargetDeviceCodes = otCodes
 	c.Jobs.Attendance.ExcludeDeviceIDs = otIds
+	c.Jobs.Attendance.ExcludeDeviceCodes = otCodes
 
 	fileBytes, err := os.ReadFile(c.ConfigFilePath)
 	if err == nil {
 		var jsonCfg JSONConfigFile
 		if err := json.Unmarshal(fileBytes, &jsonCfg); err == nil {
 			jsonCfg.Jobs.Overtime.TargetDeviceIDs = otIds
+			jsonCfg.Jobs.Overtime.TargetDeviceCodes = otCodes
 			jsonCfg.Jobs.Attendance.ExcludeDeviceIDs = otIds
+			jsonCfg.Jobs.Attendance.ExcludeDeviceCodes = otCodes
 			if cfgData, err := json.MarshalIndent(jsonCfg, "", "  "); err == nil {
 				_ = os.WriteFile(c.ConfigFilePath, cfgData, 0644)
 			}
@@ -403,10 +414,13 @@ func (c *Config) UpdateDevicesAttendanceSyncTime(deviceMaxTimes map[string]time.
 		}
 
 		devID := c.Devices[i].ID
+		devCode := c.Devices[i].GetCode()
 		devName := c.Devices[i].Name
 
 		targetTime := fallbackTime
 		if maxT, exists := deviceMaxTimes[devID]; exists && maxT.After(targetTime) {
+			targetTime = maxT
+		} else if maxT, exists := deviceMaxTimes[devCode]; devCode != "" && exists && maxT.After(targetTime) {
 			targetTime = maxT
 		} else if maxT, exists := deviceMaxTimes[devName]; exists && maxT.After(targetTime) {
 			targetTime = maxT
@@ -439,10 +453,13 @@ func (c *Config) UpdateDevicesHelpSyncTime(deviceMaxTimes map[string]time.Time, 
 		}
 
 		devID := c.Devices[i].ID
+		devCode := c.Devices[i].GetCode()
 		devName := c.Devices[i].Name
 
 		targetTime := fallbackTime
 		if maxT, exists := deviceMaxTimes[devID]; exists && maxT.After(targetTime) {
+			targetTime = maxT
+		} else if maxT, exists := deviceMaxTimes[devCode]; devCode != "" && exists && maxT.After(targetTime) {
 			targetTime = maxT
 		} else if maxT, exists := deviceMaxTimes[devName]; exists && maxT.After(targetTime) {
 			targetTime = maxT
@@ -465,7 +482,7 @@ func (c *Config) SetDeviceSyncTime(deviceID string, attendanceTimeStr *string, h
 	defer c.mu.Unlock()
 
 	for i := range c.Devices {
-		if deviceID == "" || c.Devices[i].ID == deviceID {
+		if deviceID == "" || c.Devices[i].ID == deviceID || (c.Devices[i].GetCode() != "" && c.Devices[i].GetCode() == deviceID) {
 			if attendanceTimeStr != nil {
 				c.Devices[i].AttendanceLastSyncTime = *attendanceTimeStr
 				c.Devices[i].LastSyncTime = *attendanceTimeStr

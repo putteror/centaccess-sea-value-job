@@ -115,6 +115,7 @@ func (s *diagnosticServiceImpl) PreviewAttendance(ctx context.Context, start, en
 	params.Set("endDateTime", end.Format(time.RFC3339))
 	params.Set("page", "1")
 	params.Set("limit", "100")
+	params.Set("result", "SUCCESS")
 
 	reqURL := fmt.Sprintf("%s/api/access-records/?%s", s.cfg.AppAPIURL, params.Encode())
 	statusCode, statusText, latency, bodyBytes, err := s.executeRequest(ctx, reqURL)
@@ -184,6 +185,7 @@ func (s *diagnosticServiceImpl) PreviewOvertime(ctx context.Context, start, end 
 	params.Set("endDateTime", end.Format(time.RFC3339))
 	params.Set("page", "1")
 	params.Set("limit", "100")
+	params.Set("result", "SUCCESS")
 
 	reqURL := fmt.Sprintf("%s/api/access-records/?%s", s.cfg.AppAPIURL, params.Encode())
 	statusCode, statusText, latency, bodyBytes, err := s.executeRequest(ctx, reqURL)
