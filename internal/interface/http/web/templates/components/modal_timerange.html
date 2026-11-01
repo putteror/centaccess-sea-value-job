@@ -108,25 +108,35 @@
       <!-- TAB 2: CONTINUE SYNC (WATERMARK) -->
       <div id="tabContentContinue" class="hidden space-y-3.5">
         
-        <p class="text-slate-500 text-[11px]">
-          ดึงข้อมูลต่อจากเวลาล่าสุด (Last Sync Time) ของแต่ละเครื่อง บันทึกไฟล์ลง Server (<span class="font-mono">data/</span>) และอัปเดต Last Sync Time ให้อัตโนมัติ
-        </p>
+        <!-- Concept Explanation Banner -->
+        <div class="p-2.5 rounded-lg bg-blue-50/80 border border-blue-200 text-xs text-blue-900 flex items-start gap-2">
+          <svg class="w-4 h-4 text-blue-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <div class="space-y-0.5">
+            <div class="font-bold">ดึงต่อตามเวลาของแต่ละเครื่อง (Per-Device Watermark)</div>
+            <div class="text-[11px] text-blue-700">แต่ละเครื่องจะเริ่มดึงต่อจากเวลา Log ล่าสุดของเครื่องนั้นๆ โดยอิสระ ไม่นำ Log เก่ามาเขียนซ้ำ</div>
+          </div>
+        </div>
 
         <!-- Target Service Selection -->
         <div class="space-y-1">
-          <label class="font-bold text-slate-700 block">บริการที่ต้องการซิงค์</label>
-          <select id="continueServiceSelect" onchange="updateContinueSummaryCards()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer">
-            <option value="all">ทุกระบบ (All Tasks)</option>
+          <label class="font-bold text-slate-700 block text-xs">บริการที่ต้องการซิงค์</label>
+          <select id="continueServiceSelect" onchange="updateContinueSummaryCards()" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 font-medium text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 cursor-pointer">
+            <option value="all">ทุกระบบ (Attendance, Overtime & Help)</option>
             <option value="attendance">Attendance & Overtime (Access Records)</option>
             <option value="help">Help Records (Overtime App API)</option>
             <option value="people">People Import (Excel)</option>
           </select>
         </div>
 
-        <!-- Watermark Status Overview -->
+        <!-- Fleet Status Overview Cards -->
         <div class="space-y-2">
           <div class="flex items-center justify-between">
-            <span class="font-bold text-slate-700 text-xs">เวลาเริ่มต้นของแต่ละระบบ (Start Watermarks)</span>
+            <span class="font-bold text-slate-700 text-xs flex items-center gap-1.5">
+              <span>ภาพรวมสถานะเครื่องที่จะซิงค์</span>
+              <span id="continueFleetTotalBadge" class="bg-slate-200 text-slate-700 text-[10px] px-1.5 py-0.2 rounded font-mono font-normal">-- เครื่อง</span>
+            </span>
             <button type="button" onclick="closeTimeRangeModal(); openBulkWatermarkModal();" class="text-blue-600 hover:text-blue-800 text-[11px] font-medium hover:underline cursor-pointer flex items-center gap-1">
               <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
@@ -134,19 +144,61 @@
               <span>ปรับแก้ Watermark</span>
             </button>
           </div>
+
+          <!-- Cards Summary -->
           <div class="grid grid-cols-2 gap-2 text-xs">
-            <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-0.5">
-              <span class="text-slate-500 text-[11px] block">Attendance Watermark:</span>
-              <span id="continueAttendanceWatermarkText" class="font-mono font-bold text-blue-700 block">--</span>
+            <!-- Card A: Ready to continue -->
+            <div class="p-2.5 rounded-lg bg-emerald-50/60 border border-emerald-200 space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="text-emerald-800 font-bold text-[11px] flex items-center gap-1">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500 inline-block"></span>
+                  <span>มี Log เดิมแล้ว</span>
+                </span>
+                <span id="continueSyncedCountBadge" class="font-mono font-bold text-emerald-700 text-[11px]">--</span>
+              </div>
+              <div class="text-[10px] text-slate-600 font-mono space-y-0.5">
+                <div>เก่าสุด: <span id="continueEarliestText" class="font-bold text-slate-800">--</span></div>
+                <div>ล่าสุด: <span id="continueLatestText" class="text-slate-700">--</span></div>
+              </div>
             </div>
-            <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-0.5">
-              <span class="text-slate-500 text-[11px] block">Help Watermark:</span>
-              <span id="continueHelpWatermarkText" class="font-mono font-bold text-purple-700 block">--</span>
+
+            <!-- Card B: Never synced -->
+            <div id="continueNeverCard" class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-700 font-bold text-[11px] flex items-center gap-1">
+                  <span id="continueNeverDot" class="w-2 h-2 rounded-full bg-slate-400 inline-block"></span>
+                  <span>ยังไม่เคยซิงค์</span>
+                </span>
+                <span id="continueNeverCountBadge" class="font-mono font-bold text-slate-700 text-[11px]">--</span>
+              </div>
+              <div id="continueNeverDescText" class="text-[10px] text-slate-500 font-sans leading-tight">
+                --
+              </div>
             </div>
           </div>
         </div>
 
-        <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between">
+        <!-- Collapsible Per-Device Watermark Detail List -->
+        <div class="border border-slate-200 rounded-lg overflow-hidden text-xs bg-slate-50/50">
+          <button type="button" onclick="toggleContinueDeviceDetails()" class="w-full px-3 py-2 text-left font-medium text-slate-700 hover:bg-slate-100 flex items-center justify-between cursor-pointer transition-colors">
+            <span class="flex items-center gap-1.5 text-[11px]">
+              <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+              </svg>
+              <span>ตรวจสอบเวลา Log ล่าสุดของแต่ละเครื่อง</span>
+            </span>
+            <span id="continueDeviceDetailsToggleText" class="text-[11px] text-blue-600 font-normal hover:underline flex items-center gap-0.5">
+              <span>แสดงรายละเอียด</span>
+              <svg id="continueDeviceDetailsChevron" class="w-3.5 h-3.5 transform transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </span>
+          </button>
+          <div id="continueDeviceDetailsContainer" class="hidden max-h-36 overflow-y-auto p-2 space-y-1 border-t border-slate-200 bg-white divide-y divide-slate-100 font-mono text-[11px]">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <!-- End Time Banner -->
+        <div class="p-2.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
           <span class="text-slate-600 text-[11px]">สิ้นสุดที่เวลาปัจจุบัน (End Time):</span>
           <span id="continueCurrentTimeText" class="font-mono font-bold text-slate-800">--</span>
         </div>

@@ -100,6 +100,10 @@ func (s *helpSyncServiceImpl) SyncHelp(ctx context.Context, start time.Time, end
 
 	var validRecords []model.HelpRecord
 	for _, r := range records {
+		if !r.HasCheckInAndOut() {
+			continue
+		}
+
 		devID := strings.TrimSpace(r.AccessControlDeviceID)
 		devName := strings.TrimSpace(r.AccessControlDeviceName)
 
@@ -119,6 +123,35 @@ func (s *helpSyncServiceImpl) SyncHelp(ctx context.Context, start time.Time, end
 			recTime = r.CreatedAt
 		}
 
+		// If this device was already synced up to a later or equal timestamp, skip this record
+		if updateWatermark && !recTime.IsZero() {
+			var lastTime time.Time
+			var hasLastTime bool
+
+			if t, exists := deviceLastSyncMap[devID]; exists && !t.IsZero() {
+				lastTime, hasLastTime = t, true
+			} else if devCode != "" && deviceLastSyncMap[devCode] != (time.Time{}) {
+				lastTime, hasLastTime = deviceLastSyncMap[devCode], true
+			} else if t, exists := deviceLastSyncMap[devName]; exists && !t.IsZero() {
+				lastTime, hasLastTime = t, true
+			} else {
+				// Substring / case-insensitive device matching fallback
+				for _, d := range s.cfg.GetDevices() {
+					if devName != "" && d.Name != "" && (strings.EqualFold(d.Name, devName) || strings.Contains(strings.ToLower(d.Name), strings.ToLower(devName)) || strings.Contains(strings.ToLower(devName), strings.ToLower(d.Name))) {
+						if t, exists := deviceLastSyncMap[strings.TrimSpace(d.ID)]; exists && !t.IsZero() {
+							lastTime, hasLastTime = t, true
+							break
+						}
+					}
+				}
+			}
+
+			if hasLastTime && isRecordAlreadySynced(recTime, lastTime) {
+				continue
+			}
+		}
+
+		// Track max record timestamp per device only for new processed records
 		if devID != "" && !recTime.IsZero() && recTime.After(deviceMaxTimes[devID]) {
 			deviceMaxTimes[devID] = recTime
 		}
@@ -127,23 +160,6 @@ func (s *helpSyncServiceImpl) SyncHelp(ctx context.Context, start time.Time, end
 		}
 		if devName != "" && !recTime.IsZero() && recTime.After(deviceMaxTimes[devName]) {
 			deviceMaxTimes[devName] = recTime
-		}
-
-		// If this device was already synced up to a later or equal timestamp, skip this record
-		if updateWatermark && !recTime.IsZero() {
-			if lastTime, exists := deviceLastSyncMap[devID]; exists && !lastTime.IsZero() {
-				if !recTime.After(lastTime) {
-					continue
-				}
-			} else if devCode != "" && deviceLastSyncMap[devCode] != (time.Time{}) {
-				if !recTime.After(deviceLastSyncMap[devCode]) {
-					continue
-				}
-			} else if lastTime, exists := deviceLastSyncMap[devName]; exists && !lastTime.IsZero() {
-				if !recTime.After(lastTime) {
-					continue
-				}
-			}
 		}
 		validRecords = append(validRecords, r)
 	}
@@ -203,6 +219,10 @@ func (s *helpSyncServiceImpl) ExportHelpTXT(ctx context.Context, start, end time
 
 	var validRecords []model.HelpRecord
 	for _, r := range records {
+		if !r.HasCheckInAndOut() {
+			continue
+		}
+
 		devID := strings.TrimSpace(r.AccessControlDeviceID)
 		devName := strings.TrimSpace(r.AccessControlDeviceName)
 
@@ -222,7 +242,7 @@ func (s *helpSyncServiceImpl) ExportHelpTXT(ctx context.Context, start, end time
 	}
 
 	content := model.FormatHelpRecordsToTXT(validRecords, start)
-	filename := model.GenerateTXTFilename("help", start, end)
+	filename := model.GenerateTXTFilename("HELP", start, end)
 
 	return &ExportResult{
 		Filename:    filename,

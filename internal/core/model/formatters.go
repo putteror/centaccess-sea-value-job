@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -26,10 +27,21 @@ func GetBangkokLocation() *time.Location {
 
 // FormatAccessRecordsToTXT formats a list of AccessRecord items into standard 4-column TXT format:
 // person_code scan_date scan_time device_name
+// Records are sorted chronologically in ascending order (earliest time first, latest time at bottom).
 func FormatAccessRecordsToTXT(records []AccessRecord) string {
 	bkk := GetBangkokLocation()
+
+	sortedRecords := make([]AccessRecord, len(records))
+	copy(sortedRecords, records)
+	sort.SliceStable(sortedRecords, func(i, j int) bool {
+		if !sortedRecords[i].RecordTime.Equal(sortedRecords[j].RecordTime) {
+			return sortedRecords[i].RecordTime.Before(sortedRecords[j].RecordTime)
+		}
+		return sortedRecords[i].PersonCode < sortedRecords[j].PersonCode
+	})
+
 	var sb strings.Builder
-	for _, r := range records {
+	for _, r := range sortedRecords {
 		personIdentifier := strings.TrimSpace(r.PersonCode)
 		if personIdentifier == "" {
 			personIdentifier = strings.TrimSpace(r.PersonID)
@@ -60,14 +72,47 @@ func FormatAccessRecordsToTXT(records []AccessRecord) string {
 
 // FormatHelpRecordsToTXT formats a list of HelpRecord items into standard 7-column TXT format:
 // person_code check_in_date check_in_time check_out_date check_out_time device_code/name help_department
+// Records are sorted chronologically in ascending order (earliest check-in first, latest check-in at bottom).
 func FormatHelpRecordsToTXT(records []HelpRecord, fallbackDate time.Time) string {
 	bkk := GetBangkokLocation()
 	if fallbackDate.IsZero() {
 		fallbackDate = time.Now().In(bkk)
 	}
 
+	sortedRecords := make([]HelpRecord, len(records))
+	copy(sortedRecords, records)
+	sort.SliceStable(sortedRecords, func(i, j int) bool {
+		var ti, tj time.Time
+		if sortedRecords[i].CheckInTime != nil {
+			ti = *sortedRecords[i].CheckInTime
+		}
+		if sortedRecords[j].CheckInTime != nil {
+			tj = *sortedRecords[j].CheckInTime
+		}
+		if !ti.Equal(tj) {
+			return ti.Before(tj)
+		}
+
+		var outI, outJ time.Time
+		if sortedRecords[i].CheckOutTime != nil {
+			outI = *sortedRecords[i].CheckOutTime
+		}
+		if sortedRecords[j].CheckOutTime != nil {
+			outJ = *sortedRecords[j].CheckOutTime
+		}
+		if !outI.Equal(outJ) {
+			return outI.Before(outJ)
+		}
+
+		return sortedRecords[i].PersonCode < sortedRecords[j].PersonCode
+	})
+
 	var sb strings.Builder
-	for _, r := range records {
+	for _, r := range sortedRecords {
+		if !r.HasCheckInAndOut() {
+			continue
+		}
+
 		personIdentifier := strings.TrimSpace(r.PersonCode)
 		if personIdentifier == "" {
 			personIdentifier = strings.TrimSpace(r.PersonID)
@@ -131,6 +176,7 @@ func FormatHelpRecordsToTXT(records []HelpRecord, fallbackDate time.Time) string
 }
 
 // GenerateTXTFilename creates a standardized filename based on date range and timestamp
+// Format: HELP_YYYYMMDD_HHmm.txt, OT_YYYYMMDD_HHmm.txt, AT_YYYYMMDD_HHmm.txt
 func GenerateTXTFilename(prefix string, start, end time.Time) string {
 	bkk := GetBangkokLocation()
 	if start.IsZero() {
@@ -140,12 +186,21 @@ func GenerateTXTFilename(prefix string, start, end time.Time) string {
 		end = start
 	}
 
+	normalizedPrefix := strings.ToUpper(strings.TrimSpace(prefix))
+	switch normalizedPrefix {
+	case "ATTENDANCE":
+		normalizedPrefix = "AT"
+	case "OVERTIME":
+		normalizedPrefix = "OT"
+	}
+
 	startDateStr := start.In(bkk).Format("20060102")
 	endDateStr := end.In(bkk).Format("20060102")
-	timeStr := end.In(bkk).Format("150405")
+	timeStr := end.In(bkk).Format("1504")
 
 	if startDateStr == endDateStr {
-		return fmt.Sprintf("%s_%s_%s.txt", prefix, startDateStr, timeStr)
+		return fmt.Sprintf("%s_%s_%s.txt", normalizedPrefix, startDateStr, timeStr)
 	}
-	return fmt.Sprintf("%s_%s_%s_%s.txt", prefix, startDateStr, endDateStr, timeStr)
+	return fmt.Sprintf("%s_%s_%s_%s.txt", normalizedPrefix, startDateStr, endDateStr, timeStr)
 }
+

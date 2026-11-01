@@ -38,6 +38,20 @@ func NewAttendanceSyncService(cfg *config.Config, apiClient port.CentAccessAPIPo
 	}
 }
 
+func isRecordAlreadySynced(recTime, lastSyncTime time.Time) bool {
+	if lastSyncTime.IsZero() {
+		return false
+	}
+	if !recTime.After(lastSyncTime) {
+		return true
+	}
+	// Guard against subsecond/millisecond discrepancies where watermark was saved at second-level
+	if recTime.Truncate(time.Second).Equal(lastSyncTime.Truncate(time.Second)) || recTime.Truncate(time.Second).Before(lastSyncTime.Truncate(time.Second)) {
+		return true
+	}
+	return false
+}
+
 func isOTDevice(deviceName, deviceID, deviceCode string, targetNames, targetIDs, targetCodes []string) bool {
 	trimmedCode := strings.TrimSpace(deviceCode)
 	for _, code := range targetCodes {
@@ -178,6 +192,35 @@ func (s *attendanceSyncServiceImpl) SyncAttendance(ctx context.Context, start ti
 		}
 		devCode := strings.TrimSpace(r.AccessControlDeviceCode)
 
+		// If this device was already synced up to a later or equal timestamp, skip this record
+		if updateWatermark {
+			var lastTime time.Time
+			var hasLastTime bool
+
+			if t, exists := deviceLastSyncMap[devID]; exists && !t.IsZero() {
+				lastTime, hasLastTime = t, true
+			} else if devCode != "" && deviceLastSyncMap[devCode] != (time.Time{}) {
+				lastTime, hasLastTime = deviceLastSyncMap[devCode], true
+			} else if t, exists := deviceLastSyncMap[devName]; exists && !t.IsZero() {
+				lastTime, hasLastTime = t, true
+			} else {
+				// Substring / case-insensitive device matching fallback
+				for _, d := range s.cfg.GetDevices() {
+					if devName != "" && d.Name != "" && (strings.EqualFold(d.Name, devName) || strings.Contains(strings.ToLower(d.Name), strings.ToLower(devName)) || strings.Contains(strings.ToLower(devName), strings.ToLower(d.Name))) {
+						if t, exists := deviceLastSyncMap[strings.TrimSpace(d.ID)]; exists && !t.IsZero() {
+							lastTime, hasLastTime = t, true
+							break
+						}
+					}
+				}
+			}
+
+			if hasLastTime && isRecordAlreadySynced(r.RecordTime, lastTime) {
+				continue
+			}
+		}
+
+		// Track max record timestamp per device only for new processed records
 		if devID != "" && r.RecordTime.After(deviceMaxTimes[devID]) {
 			deviceMaxTimes[devID] = r.RecordTime
 		}
@@ -186,23 +229,6 @@ func (s *attendanceSyncServiceImpl) SyncAttendance(ctx context.Context, start ti
 		}
 		if devName != "" && r.RecordTime.After(deviceMaxTimes[devName]) {
 			deviceMaxTimes[devName] = r.RecordTime
-		}
-
-		// If this device was already synced up to a later or equal timestamp, skip this record
-		if updateWatermark {
-			if lastTime, exists := deviceLastSyncMap[devID]; exists && !lastTime.IsZero() {
-				if !r.RecordTime.After(lastTime) {
-					continue
-				}
-			} else if devCode != "" && deviceLastSyncMap[devCode] != (time.Time{}) {
-				if !r.RecordTime.After(deviceLastSyncMap[devCode]) {
-					continue
-				}
-			} else if lastTime, exists := deviceLastSyncMap[devName]; exists && !lastTime.IsZero() {
-				if !r.RecordTime.After(lastTime) {
-					continue
-				}
-			}
 		}
 
 		if isOTDevice(r.AccessControlDeviceName, r.AccessControlDeviceID, r.AccessControlDeviceCode, otNames, otIDs, otCodes) {
@@ -340,9 +366,9 @@ func (s *attendanceSyncServiceImpl) exportAccessRecordsTXT(ctx context.Context, 
 		filteredRecords = append(filteredRecords, r)
 	}
 
-	prefix := "attendance"
+	prefix := "AT"
 	if isOvertime {
-		prefix = "overtime"
+		prefix = "OT"
 	}
 
 	content := model.FormatAccessRecordsToTXT(filteredRecords)

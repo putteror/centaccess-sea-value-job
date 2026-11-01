@@ -148,6 +148,7 @@ func (s *deviceServiceImpl) SyncDevicesFromCentAccess(ctx context.Context) ([]mo
 			d.AttendanceLastSyncTime = old.AttendanceLastSyncTime
 			d.HelpLastSyncTime = old.HelpLastSyncTime
 			d.LastSyncTime = old.LastSyncTime
+			d.LastCheckTime = old.LastCheckTime
 			if d.GetCode() == "" && old.GetCode() != "" {
 				d.Code = old.GetCode()
 				d.AccessControlDeviceCode = old.GetCode()

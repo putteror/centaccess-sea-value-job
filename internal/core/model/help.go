@@ -2,8 +2,17 @@ package model
 
 import (
 	"encoding/json"
+	"strings"
 	"time"
 )
+
+// HasCheckInAndOut returns true if the record has both valid check-in and check-out timestamps and is not just checked-in
+func (h HelpRecord) HasCheckInAndOut() bool {
+	if strings.EqualFold(h.Status, "CHECKED_IN") {
+		return false
+	}
+	return h.CheckInTime != nil && !h.CheckInTime.IsZero() && h.CheckOutTime != nil && !h.CheckOutTime.IsZero()
+}
 
 // HelpRecord represents CentAccess Help / Overtime Check-in / Check-out entry matching App API
 type HelpRecord struct {

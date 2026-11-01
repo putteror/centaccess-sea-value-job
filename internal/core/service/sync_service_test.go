@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -209,6 +210,124 @@ func TestSyncAttendanceSingleFetchSplit(t *testing.T) {
 	}
 }
 
+func TestSyncAttendanceOfflineDevicePreservesWatermark(t *testing.T) {
+	tempDir := t.TempDir()
+	devPath := filepath.Join(tempDir, "devices.json")
+
+	cfg := &config.Config{
+		DevicesFilePath: devPath,
+		Jobs: config.JobsConfig{
+			Attendance: config.AttendanceJobConfig{
+				ExportFolder: "attendance",
+				Format:       "txt",
+			},
+		},
+		Devices: []model.DeviceItem{
+			{
+				ID:                     "DEV_ONLINE",
+				Name:                   "Online Gate",
+				Enabled:                true,
+				AttendanceLastSyncTime: "2026-10-31T08:00:00+07:00",
+			},
+			{
+				ID:                     "DEV_OFFLINE",
+				Name:                   "Offline Gate",
+				Enabled:                true,
+				AttendanceLastSyncTime: "2026-10-30T17:00:00+07:00",
+			},
+		},
+	}
+
+	recordTime, _ := time.Parse(time.RFC3339, "2026-11-01T08:30:00+07:00")
+	// Only DEV_ONLINE has records in the fetched batch
+	rawRecords := []model.AccessRecord{
+		{
+			PersonCode:              "EMP001",
+			AccessControlDeviceName: "Online Gate",
+			AccessControlDeviceID:   "DEV_ONLINE",
+			RecordTime:              recordTime,
+		},
+	}
+
+	mockClient := &mockCentAccessClient{records: rawRecords}
+	mockStore := &mockStorage{}
+
+	attService := NewAttendanceSyncService(cfg, mockClient, mockStore)
+
+	ctx := context.Background()
+	checkTime, _ := time.Parse(time.RFC3339, "2026-11-01T10:00:00+07:00")
+
+	if err := attService.SyncAttendance(ctx, recordTime.Add(-1*time.Hour), checkTime, true); err != nil {
+		t.Fatalf("SyncAttendance error: %v", err)
+	}
+
+	devs := cfg.GetDevices()
+	// DEV_ONLINE should advance to recordTime
+	if devs[0].AttendanceLastSyncTime != recordTime.Format(time.RFC3339) {
+		t.Errorf("expected DEV_ONLINE watermark to be %s, got %s", recordTime.Format(time.RFC3339), devs[0].AttendanceLastSyncTime)
+	}
+	// DEV_OFFLINE MUST preserve 2026-10-30T17:00:00+07:00
+	if devs[1].AttendanceLastSyncTime != "2026-10-30T17:00:00+07:00" {
+		t.Errorf("expected DEV_OFFLINE watermark to remain 2026-10-30T17:00:00+07:00, got %s", devs[1].AttendanceLastSyncTime)
+	}
+}
+
+func TestSyncAttendanceDuplicateRecordAtWatermarkTime(t *testing.T) {
+	tempDir := t.TempDir()
+	devPath := filepath.Join(tempDir, "devices.json")
+
+	cfg := &config.Config{
+		DevicesFilePath: devPath,
+		Jobs: config.JobsConfig{
+			Attendance: config.AttendanceJobConfig{
+				ExportFolder: "attendance",
+				Format:       "txt",
+			},
+			Overtime: config.OvertimeJobConfig{
+				TargetDeviceNames: []string{"E88"},
+			},
+		},
+		Devices: []model.DeviceItem{
+			{
+				ID:                     "5a2e0d16-b743-4b88-b2f7-af7c89d75411",
+				Name:                   "Shenxing_E88",
+				Enabled:                true,
+				AttendanceLastSyncTime: "2026-10-24T15:48:09Z",
+			},
+		},
+	}
+
+	// Case A: Exact same second with subseconds .345
+	recTimeWithSubsecond, _ := time.Parse(time.RFC3339Nano, "2026-10-24T15:48:09.345Z")
+
+	rawRecords := []model.AccessRecord{
+		{
+			PersonCode:              "EMP001",
+			AccessControlDeviceName: "E88",
+			AccessControlDeviceID:   "5a2e0d16-b743-4b88-b2f7-af7c89d75411",
+			RecordTime:              recTimeWithSubsecond,
+		},
+	}
+
+	mockClient := &mockCentAccessClient{records: rawRecords}
+	mockStore := &mockStorage{}
+
+	attService := NewAttendanceSyncService(cfg, mockClient, mockStore)
+
+	ctx := context.Background()
+	checkTime := time.Now()
+
+	start, _ := time.Parse(time.RFC3339, "2026-10-24T15:48:09Z")
+	if err := attService.SyncAttendance(ctx, start, checkTime, true); err != nil {
+		t.Fatalf("SyncAttendance error: %v", err)
+	}
+
+	t.Logf("Written attendance: %d, written overtime: %d", len(mockStore.writtenAttendance), len(mockStore.writtenOvertime))
+	if len(mockStore.writtenOvertime) > 0 {
+		t.Errorf("BUG REPRODUCED! Record at 22:48:09 was written again! Count: %d", len(mockStore.writtenOvertime))
+	}
+}
+
 func TestSyncHelpRecords(t *testing.T) {
 	cfg := &config.Config{
 		Jobs: config.JobsConfig{
@@ -219,9 +338,14 @@ func TestSyncHelpRecords(t *testing.T) {
 		},
 	}
 
+	inTime := time.Now().Add(-2 * time.Hour)
+	outTime := time.Now().Add(-1 * time.Hour)
 	helpRecords := []model.HelpRecord{
 		{
 			PersonCode:              "6103510013",
+			CheckInTime:             &inTime,
+			CheckOutTime:            &outTime,
+			Status:                  "CHECKED_OUT",
 			AccessControlDeviceName: "U1-IN-BB-01",
 			AccessControlDeviceID:   "DEV_HELP_01",
 			HelpDepartment:          "0000000000",
@@ -299,9 +423,14 @@ func TestExportMethods(t *testing.T) {
 		},
 	}
 
+	helpInTime := now.Add(-2 * time.Hour)
+	helpOutTime := now
 	helpRecords := []model.HelpRecord{
 		{
 			PersonCode:              "HELP001",
+			CheckInTime:             &helpInTime,
+			CheckOutTime:            &helpOutTime,
+			Status:                  "CHECKED_OUT",
 			AccessControlDeviceName: "Main Entrance Door",
 			AccessControlDeviceID:   "DEV_MAIN_01",
 			HelpDepartment:          "HR",
@@ -425,5 +554,81 @@ func TestSyncAttendanceFiltersSuccessOnly(t *testing.T) {
 		t.Errorf("export content should not contain failed records: %s", string(exportRes.Content))
 	}
 }
+
+func TestSyncHelpFiltersCheckInAndCheckOut(t *testing.T) {
+	cfg := &config.Config{
+		Jobs: config.JobsConfig{
+			Help: config.HelpJobConfig{
+				ExportFolder: "help",
+			},
+		},
+	}
+
+	t1 := time.Now().Add(-3 * time.Hour)
+	t2 := time.Now().Add(-2 * time.Hour)
+	t3 := time.Now().Add(-1 * time.Hour)
+
+	mockClient := &mockCentAccessClientWithHelp{
+		helpRecords: []model.HelpRecord{
+			{
+				PersonCode:              "HELP_IN_ONLY",
+				CheckInTime:             &t1,
+				CheckOutTime:            nil,
+				Status:                  "CHECKED_IN",
+				AccessControlDeviceName: "Gate Help",
+				AccessControlDeviceID:   "DEV_HELP",
+			},
+			{
+				PersonCode:              "HELP_NO_IN",
+				CheckInTime:             nil,
+				CheckOutTime:            &t2,
+				Status:                  "CHECKED_OUT",
+				AccessControlDeviceName: "Gate Help",
+				AccessControlDeviceID:   "DEV_HELP",
+			},
+			{
+				PersonCode:              "HELP_COMPLETED_1",
+				CheckInTime:             &t1,
+				CheckOutTime:            &t2,
+				Status:                  "CHECKED_OUT",
+				AccessControlDeviceName: "Gate Help",
+				AccessControlDeviceID:   "DEV_HELP",
+			},
+			{
+				PersonCode:              "HELP_COMPLETED_2",
+				CheckInTime:             &t2,
+				CheckOutTime:            &t3,
+				Status:                  "AUTO_CLOSED",
+				AccessControlDeviceName: "Gate Help",
+				AccessControlDeviceID:   "DEV_HELP",
+			},
+		},
+	}
+
+	mockStore := &mockStorage{}
+	service := NewHelpSyncService(cfg, mockClient, mockStore)
+	ctx := context.Background()
+
+	// 1. Test ExportHelpTXT only includes HELP_COMPLETED_1 and HELP_COMPLETED_2
+	exportRes, err := service.ExportHelpTXT(ctx, time.Time{}, time.Time{}, nil)
+	if err != nil {
+		t.Fatalf("ExportHelpTXT error: %v", err)
+	}
+	if exportRes.RecordCount != 2 {
+		t.Fatalf("expected 2 complete help records in export, got %d", exportRes.RecordCount)
+	}
+
+	contentStr := string(exportRes.Content)
+	if strings.Contains(contentStr, "HELP_IN_ONLY") {
+		t.Errorf("export content should not contain HELP_IN_ONLY: %s", contentStr)
+	}
+	if strings.Contains(contentStr, "HELP_NO_IN") {
+		t.Errorf("export content should not contain HELP_NO_IN: %s", contentStr)
+	}
+	if !strings.Contains(contentStr, "HELP_COMPLETED_1") || !strings.Contains(contentStr, "HELP_COMPLETED_2") {
+		t.Errorf("export content missing completed records: %s", contentStr)
+	}
+}
+
 
 

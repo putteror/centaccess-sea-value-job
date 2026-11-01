@@ -408,13 +408,12 @@ func (h *ConfigHandler) GetDevices(w http.ResponseWriter, r *http.Request) {
 	}
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":              true,
-		"devices":              devices,
-		"targetDeviceNames":    h.cfg.Jobs.Overtime.TargetDeviceNames,
-		"targetDeviceIds":      h.cfg.Jobs.Overtime.TargetDeviceIDs,
-		"targetDeviceCodes":    h.cfg.Jobs.Overtime.TargetDeviceCodes,
-		"initialLookbackHours": h.cfg.Jobs.Attendance.InitialLookbackHours,
-		"maxLookbackDays":      h.cfg.Jobs.Attendance.MaxLookbackDays,
+		"success":           true,
+		"devices":           devices,
+		"targetDeviceNames": h.cfg.Jobs.Overtime.TargetDeviceNames,
+		"targetDeviceIds":   h.cfg.Jobs.Overtime.TargetDeviceIDs,
+		"targetDeviceCodes": h.cfg.Jobs.Overtime.TargetDeviceCodes,
+		"maxLookbackDays":   h.cfg.GetMaxLookbackDays("attendance"),
 	})
 }
 
@@ -434,14 +433,13 @@ func (h *ConfigHandler) SyncDevicesFromCentAccess(w http.ResponseWriter, r *http
 	}
 
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"success":              true,
-		"message":              fmt.Sprintf("Discovered and updated %d devices from CentAccess API.", len(devices)),
-		"devices":              devices,
-		"targetDeviceNames":    h.cfg.Jobs.Overtime.TargetDeviceNames,
-		"targetDeviceIds":      h.cfg.Jobs.Overtime.TargetDeviceIDs,
-		"targetDeviceCodes":    h.cfg.Jobs.Overtime.TargetDeviceCodes,
-		"initialLookbackHours": h.cfg.Jobs.Attendance.InitialLookbackHours,
-		"maxLookbackDays":      h.cfg.Jobs.Attendance.MaxLookbackDays,
+		"success":           true,
+		"message":           fmt.Sprintf("Discovered and updated %d devices from CentAccess API.", len(devices)),
+		"devices":           devices,
+		"targetDeviceNames": h.cfg.Jobs.Overtime.TargetDeviceNames,
+		"targetDeviceIds":   h.cfg.Jobs.Overtime.TargetDeviceIDs,
+		"targetDeviceCodes": h.cfg.Jobs.Overtime.TargetDeviceCodes,
+		"maxLookbackDays":   h.cfg.GetMaxLookbackDays("attendance"),
 	})
 }
 

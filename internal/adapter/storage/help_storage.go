@@ -21,7 +21,7 @@ func (s *FileStorageAdapter) WriteHelpRecords(ctx context.Context, records []mod
 		return "", fmt.Errorf("failed to create help folder: %w", err)
 	}
 
-	filename := model.GenerateTXTFilename("help", targetDate, targetDate)
+	filename := model.GenerateTXTFilename("HELP", targetDate, targetDate)
 	filePath := filepath.Join(dirPath, filename)
 
 	content := model.FormatHelpRecordsToTXT(records, targetDate)

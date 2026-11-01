@@ -52,6 +52,7 @@ type DeviceItem struct {
 	AttendanceLastSyncTime  string `json:"attendanceLastSyncTime,omitempty"`
 	HelpLastSyncTime        string `json:"helpLastSyncTime,omitempty"`
 	LastSyncTime            string `json:"lastSyncTime,omitempty"` // backward compatibility fallback
+	LastCheckTime           string `json:"lastCheckTime,omitempty"`
 }
 
 // GetCode returns the device code supporting both AccessControlDeviceCode and Code

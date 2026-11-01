@@ -3,6 +3,7 @@ package storage
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -53,6 +54,9 @@ func TestStorageFileFormatting(t *testing.T) {
 		if err != nil {
 			t.Fatalf("WriteAttendanceRecords error: %v", err)
 		}
+		if filepath.Base(filePath) != "AT_20250623_0700.txt" {
+			t.Errorf("Attendance filename mismatch. Got: %s, Want: AT_20250623_0700.txt", filepath.Base(filePath))
+		}
 
 		content, err := os.ReadFile(filePath)
 		if err != nil {
@@ -87,6 +91,9 @@ func TestStorageFileFormatting(t *testing.T) {
 		filePath, err := adapter.WriteOvertimeRecords(ctx, records, testDate)
 		if err != nil {
 			t.Fatalf("WriteOvertimeRecords error: %v", err)
+		}
+		if filepath.Base(filePath) != "OT_20250623_0700.txt" {
+			t.Errorf("Overtime filename mismatch. Got: %s, Want: OT_20250623_0700.txt", filepath.Base(filePath))
 		}
 
 		content, err := os.ReadFile(filePath)
@@ -125,6 +132,9 @@ func TestStorageFileFormatting(t *testing.T) {
 		filePath, err := adapter.WriteHelpRecords(ctx, records, testDate)
 		if err != nil {
 			t.Fatalf("WriteHelpRecords error: %v", err)
+		}
+		if filepath.Base(filePath) != "HELP_20250623_0700.txt" {
+			t.Errorf("Help filename mismatch. Got: %s, Want: HELP_20250623_0700.txt", filepath.Base(filePath))
 		}
 
 		content, err := os.ReadFile(filePath)

@@ -6,9 +6,7 @@
     "status": "OFFLINE",
     "isOt": true,
     "enabled": true,
-    "attendanceLastSyncTime": "2026-10-21T17:22:00+07:00",
-    "helpLastSyncTime": "2026-10-21T17:18:50+07:00",
-    "lastSyncTime": "2026-10-21T17:22:00+07:00"
+    "lastCheckTime": "2026-11-01T10:31:00+07:00"
   },
   {
     "id": "5a2e0d16-b743-4b88-b2f7-af7c89d75411",
@@ -17,9 +15,9 @@
     "status": "ONLINE",
     "isOt": true,
     "enabled": true,
-    "attendanceLastSyncTime": "2026-10-21T17:22:00+07:00",
-    "helpLastSyncTime": "2026-10-21T17:18:50+07:00",
-    "lastSyncTime": "2026-10-21T17:22:00+07:00"
+    "attendanceLastSyncTime": "2026-10-24T15:48:09Z",
+    "lastSyncTime": "2026-10-24T15:48:09Z",
+    "lastCheckTime": "2026-11-01T10:31:00+07:00"
   },
   {
     "id": "0908bf9f-173b-494f-9b88-b784d1969961",
@@ -28,9 +26,9 @@
     "status": "OFFLINE",
     "isOt": false,
     "enabled": true,
-    "attendanceLastSyncTime": "2026-10-21T17:22:00+07:00",
-    "helpLastSyncTime": "2026-10-21T17:18:50+07:00",
-    "lastSyncTime": "2026-10-21T17:22:00+07:00"
+    "attendanceLastSyncTime": "2026-10-15T12:35:51.722Z",
+    "lastSyncTime": "2026-10-15T12:35:51.722Z",
+    "lastCheckTime": "2026-11-01T10:31:00+07:00"
   },
   {
     "id": "b636717f-7a61-4b48-855b-d02f6070488a",
@@ -39,9 +37,7 @@
     "status": "OFFLINE",
     "isOt": false,
     "enabled": true,
-    "attendanceLastSyncTime": "2026-10-21T17:22:00+07:00",
-    "helpLastSyncTime": "2026-10-21T17:18:50+07:00",
-    "lastSyncTime": "2026-10-21T17:22:00+07:00"
+    "lastCheckTime": "2026-11-01T10:31:00+07:00"
   },
   {
     "id": "504079a4-fd06-4c4b-91b2-d707099cb5f8",
@@ -50,9 +46,7 @@
     "status": "OFFLINE",
     "isOt": false,
     "enabled": true,
-    "attendanceLastSyncTime": "2026-10-21T17:22:00+07:00",
-    "helpLastSyncTime": "2026-10-21T17:18:50+07:00",
-    "lastSyncTime": "2026-10-21T17:22:00+07:00"
+    "lastCheckTime": "2026-11-01T10:31:00+07:00"
   },
   {
     "id": "e7feda82-d767-4ef8-a45b-29c9c4717f7a",
@@ -61,8 +55,6 @@
     "status": "OFFLINE",
     "isOt": false,
     "enabled": true,
-    "attendanceLastSyncTime": "2026-10-21T17:22:00+07:00",
-    "helpLastSyncTime": "2026-10-21T17:18:50+07:00",
-    "lastSyncTime": "2026-10-21T17:22:00+07:00"
+    "lastCheckTime": "2026-11-01T10:31:00+07:00"
   }
 ]

@@ -262,44 +262,139 @@ function toggleAllExportDevices() {
 }
 
 function updateContinueSummaryCards() {
-  const attEl = document.getElementById('continueAttendanceWatermarkText');
-  const helpEl = document.getElementById('continueHelpWatermarkText');
   const nowEl = document.getElementById('continueCurrentTimeText');
-
   if (nowEl) {
-    const now = new Date();
-    nowEl.textContent = formatDateTimeDisplay(now);
+    nowEl.textContent = formatDateTimeDisplay(new Date());
   }
 
+  const select = document.getElementById('continueServiceSelect');
+  const service = select ? select.value : 'all';
+
+  const totalBadge = document.getElementById('continueFleetTotalBadge');
+  const syncedBadge = document.getElementById('continueSyncedCountBadge');
+  const earliestEl = document.getElementById('continueEarliestText');
+  const latestEl = document.getElementById('continueLatestText');
+  const neverBadge = document.getElementById('continueNeverCountBadge');
+  const neverDesc = document.getElementById('continueNeverDescText');
+  const neverCard = document.getElementById('continueNeverCard');
+  const neverDot = document.getElementById('continueNeverDot');
+  const detailContainer = document.getElementById('continueDeviceDetailsContainer');
+
   if (!devices || devices.length === 0) {
-    if (attEl) attEl.textContent = '00:00 (Today)';
-    if (helpEl) helpEl.textContent = '00:00 (Today)';
+    if (totalBadge) totalBadge.textContent = '0 เครื่อง';
+    if (syncedBadge) syncedBadge.textContent = '0 เครื่อง';
+    if (earliestEl) earliestEl.textContent = '-';
+    if (latestEl) latestEl.textContent = '-';
+    if (neverBadge) neverBadge.textContent = '0';
+    if (neverDesc) neverDesc.textContent = 'ไม่พบเครื่องในระบบ';
     return;
   }
 
-  let earliestAtt = null;
-  let earliestHelp = null;
+  const enabledDevices = devices.filter(d => d.enabled !== false);
+  if (totalBadge) totalBadge.textContent = `${enabledDevices.length} เครื่อง`;
 
-  devices.filter(d => d.enabled !== false).forEach(d => {
-    if (d.attendanceLastSyncTime) {
-      const t = new Date(d.attendanceLastSyncTime);
-      if (!isNaN(t.getTime()) && (!earliestAtt || t < earliestAtt)) {
-        earliestAtt = t;
+  const isHelp = (service === 'help');
+
+  const syncedList = [];
+  const neverList = [];
+
+  enabledDevices.forEach(d => {
+    let timeStr = isHelp ? d.helpLastSyncTime : (d.attendanceLastSyncTime || d.lastSyncTime);
+    timeStr = (timeStr || '').trim();
+    if (timeStr) {
+      const dt = new Date(timeStr);
+      if (!isNaN(dt.getTime())) {
+        syncedList.push({ device: d, time: dt });
+        return;
       }
     }
-    if (d.helpLastSyncTime) {
-      const t = new Date(d.helpLastSyncTime);
-      if (!isNaN(t.getTime()) && (!earliestHelp || t < earliestHelp)) {
-        earliestHelp = t;
-      }
-    }
+    neverList.push({ device: d });
   });
 
-  if (attEl) {
-    attEl.textContent = earliestAtt ? formatDateTimeDisplay(earliestAtt) : '00:00 Today';
+  // Sort by time ascending
+  syncedList.sort((a, b) => a.time - b.time);
+
+  if (syncedBadge) syncedBadge.textContent = `${syncedList.length} เครื่อง`;
+  if (syncedList.length > 0) {
+    const earliest = syncedList[0];
+    const latest = syncedList[syncedList.length - 1];
+    if (earliestEl) earliestEl.textContent = formatDateTimeDisplay(earliest.time);
+    if (latestEl) latestEl.textContent = formatDateTimeDisplay(latest.time);
+  } else {
+    if (earliestEl) earliestEl.textContent = 'ยังไม่มีประวัติ';
+    if (latestEl) latestEl.textContent = 'ยังไม่มีประวัติ';
   }
-  if (helpEl) {
-    helpEl.textContent = earliestHelp ? formatDateTimeDisplay(earliestHelp) : '00:00 Today';
+
+  const maxDays = window.currentMaxLookbackDays || 7;
+
+  if (neverBadge) neverBadge.textContent = `${neverList.length} เครื่อง`;
+  if (neverList.length > 0) {
+    if (neverCard) {
+      neverCard.className = 'p-2.5 rounded-lg bg-amber-50/70 border border-amber-200 space-y-1';
+    }
+    if (neverDot) {
+      neverDot.className = 'w-2 h-2 rounded-full bg-amber-500 inline-block';
+    }
+    if (neverDesc) {
+      neverDesc.innerHTML = `<span class="text-amber-800 font-medium">จะเริ่มดึงย้อนหลัง ${maxDays} วัน</span> <span class="text-slate-400">ให้อัตโนมัติเฉพาะเครื่องนี้</span>`;
+    }
+  } else {
+    if (neverCard) {
+      neverCard.className = 'p-2.5 rounded-lg bg-slate-50 border border-slate-200 space-y-1';
+    }
+    if (neverDot) {
+      neverDot.className = 'w-2 h-2 rounded-full bg-emerald-500 inline-block';
+    }
+    if (neverDesc) {
+      neverDesc.innerHTML = `<span class="text-emerald-700 font-medium">ครบทุกเครื่องแล้ว</span> <span class="text-slate-400">(ไม่มีเครื่อง Never)</span>`;
+    }
+  }
+
+  // Populate Collapsible List
+  if (detailContainer) {
+    const allOrdered = [
+      ...syncedList.map(item => ({ ...item, isNever: false })),
+      ...neverList.map(item => ({ ...item, isNever: true }))
+    ];
+
+    detailContainer.innerHTML = allOrdered.map(item => {
+      const d = item.device;
+      const code = d.accessControlDeviceCode || d.code || '';
+      const otBadge = d.isOt ? '<span class="text-[9px] bg-purple-50 text-purple-700 border border-purple-200 px-1 rounded">OT</span>' : '';
+      return `
+        <div class="flex items-center justify-between py-1 px-1.5 hover:bg-slate-50 rounded gap-2">
+          <div class="flex items-center gap-1.5 truncate">
+            <span class="w-1.5 h-1.5 rounded-full shrink-0 ${item.isNever ? 'bg-amber-400' : 'bg-emerald-500'}"></span>
+            <span class="font-medium text-slate-800 truncate text-[11px]">${d.name || 'Unnamed Device'}</span>
+            ${code ? `<span class="text-slate-400 text-[10px]">(${code})</span>` : ''}
+            ${otBadge}
+          </div>
+          <div class="text-right shrink-0">
+            ${item.isNever 
+              ? `<span class="text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.2 rounded font-sans font-medium text-[10px]">Never (ย้อน ${maxDays} วัน)</span>`
+              : `<span class="text-blue-700 font-semibold font-mono text-[11px]">${formatDateTimeDisplay(item.time)}</span>`}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+function toggleContinueDeviceDetails() {
+  const container = document.getElementById('continueDeviceDetailsContainer');
+  const toggleText = document.getElementById('continueDeviceDetailsToggleText');
+  const chevron = document.getElementById('continueDeviceDetailsChevron');
+  if (!container) return;
+
+  const isHidden = container.classList.contains('hidden');
+  if (isHidden) {
+    container.classList.remove('hidden');
+    if (toggleText) toggleText.querySelector('span').textContent = 'ซ่อนรายละเอียด';
+    if (chevron) chevron.classList.add('rotate-180');
+  } else {
+    container.classList.add('hidden');
+    if (toggleText) toggleText.querySelector('span').textContent = 'แสดงรายละเอียด';
+    if (chevron) chevron.classList.remove('rotate-180');
   }
 }
 
@@ -582,10 +677,7 @@ async function loadDevices() {
       }
 
       // Populate lookback & limit settings
-      const initLbInput = document.getElementById('job_initial_lookback_hours');
-      if (initLbInput && data.initialLookbackHours !== undefined) {
-        initLbInput.value = data.initialLookbackHours;
-      }
+      window.currentMaxLookbackDays = data.maxLookbackDays || 7;
       const maxLbInput = document.getElementById('job_max_lookback_days');
       if (maxLbInput && data.maxLookbackDays !== undefined) {
         maxLbInput.value = data.maxLookbackDays;
@@ -855,16 +947,16 @@ async function saveDeviceRegistry() {
     if (d.isOt && d.id) otIds.add(d.id);
   });
 
-  const initLbVal = parseInt(document.getElementById('job_initial_lookback_hours')?.value, 10);
   const maxLbVal = parseInt(document.getElementById('job_max_lookback_days')?.value, 10);
+  const lookbackDays = isNaN(maxLbVal) || maxLbVal <= 0 ? 7 : maxLbVal;
+  window.currentMaxLookbackDays = lookbackDays;
 
   const payload = {
     targetDeviceNames: keywords,
     targetDeviceCodes: targetCodes,
     targetDeviceIds: Array.from(otIds),
     devices: devices,
-    initialLookbackHours: isNaN(initLbVal) ? 24 : initLbVal,
-    maxLookbackDays: isNaN(maxLbVal) ? 7 : maxLbVal
+    maxLookbackDays: lookbackDays
   };
 
   log(`Saving device registry (${devices.length} devices, ${otIds.size} OT gates)...`, 'running');

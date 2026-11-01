@@ -153,29 +153,27 @@ func TestInitialLookbackAndLimits(t *testing.T) {
 	cfg := &Config{
 		Jobs: JobsConfig{
 			Attendance: AttendanceJobConfig{
-				InitialLookbackHours: 24,
-				MaxLookbackDays:      14,
+				MaxLookbackDays: 14,
 			},
 			Help: HelpJobConfig{
-				InitialLookbackHours: 0, // start of day
-				MaxLookbackDays:      0, // default 7 days
+				MaxLookbackDays: 0, // default 7 days
 			},
 		},
 	}
 
-	// 1. Attendance initial sync (24h ago)
+	// 1. Attendance initial sync (14 days ago)
 	now := time.Now()
 	attInitial := cfg.GetInitialSyncTime("attendance")
-	diffAtt := now.Sub(attInitial)
-	if diffAtt < 23*time.Hour || diffAtt > 25*time.Hour {
-		t.Errorf("expected ~24 hours difference, got %v", diffAtt)
+	expectedAtt := now.AddDate(0, 0, -14)
+	if attInitial.Day() != expectedAtt.Day() || attInitial.Month() != expectedAtt.Month() {
+		t.Errorf("expected 14 days ago %v, got %v", expectedAtt, attInitial)
 	}
 
-	// 2. Help initial sync (00:00:00 of today)
+	// 2. Help initial sync (default 7 days ago)
 	helpInitial := cfg.GetInitialSyncTime("help")
-	expectedHelpStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	if !helpInitial.Equal(expectedHelpStart) {
-		t.Errorf("expected start of day %v, got %v", expectedHelpStart, helpInitial)
+	expectedHelp := now.AddDate(0, 0, -7)
+	if helpInitial.Day() != expectedHelp.Day() || helpInitial.Month() != expectedHelp.Month() {
+		t.Errorf("expected 7 days ago %v, got %v", expectedHelp, helpInitial)
 	}
 
 	// 3. Max lookback days check
@@ -184,6 +182,75 @@ func TestInitialLookbackAndLimits(t *testing.T) {
 	}
 	if cfg.GetMaxLookbackDays("help") != 7 { // default 7
 		t.Errorf("expected 7 default max lookback days for help, got %d", cfg.GetMaxLookbackDays("help"))
+	}
+}
+
+func TestUpdateDevicesLogBasedWatermark(t *testing.T) {
+	tempDir := t.TempDir()
+	devPath := filepath.Join(tempDir, "devices.json")
+
+	cfg := &Config{
+		DevicesFilePath: devPath,
+		Devices: []model.DeviceItem{
+			{
+				ID:                     "dev-online",
+				Name:                   "Online Gate",
+				Enabled:                true,
+				AttendanceLastSyncTime: "2026-10-31T08:00:00+07:00",
+				HelpLastSyncTime:       "2026-10-31T08:00:00+07:00",
+			},
+			{
+				ID:                     "dev-offline",
+				Name:                   "Offline Gate",
+				Enabled:                true,
+				AttendanceLastSyncTime: "2026-10-30T17:00:00+07:00",
+				HelpLastSyncTime:       "2026-10-30T17:00:00+07:00",
+			},
+		},
+	}
+
+	checkTime, _ := time.Parse(time.RFC3339, "2026-11-01T10:00:00+07:00")
+	logTimeOnline, _ := time.Parse(time.RFC3339, "2026-11-01T09:15:30+07:00")
+
+	// deviceMaxTimes only contains records for "dev-online", "dev-offline" has NO records (offline)
+	deviceMaxTimes := map[string]time.Time{
+		"dev-online": logTimeOnline,
+	}
+
+	// 1. Update Attendance Watermark
+	if err := cfg.UpdateDevicesAttendanceSyncTime(deviceMaxTimes, checkTime); err != nil {
+		t.Fatalf("UpdateDevicesAttendanceSyncTime error: %v", err)
+	}
+
+	devs := cfg.GetDevices()
+	// dev-online should advance to logTimeOnline
+	if devs[0].AttendanceLastSyncTime != logTimeOnline.Format(time.RFC3339) {
+		t.Errorf("expected dev-online attendance watermark %s, got %s", logTimeOnline.Format(time.RFC3339), devs[0].AttendanceLastSyncTime)
+	}
+	// dev-offline MUST remain at its original watermark 2026-10-30T17:00:00+07:00
+	if devs[1].AttendanceLastSyncTime != "2026-10-30T17:00:00+07:00" {
+		t.Errorf("expected dev-offline attendance watermark to stay 2026-10-30T17:00:00+07:00, but got %s", devs[1].AttendanceLastSyncTime)
+	}
+	// Both devices should have LastCheckTime recorded
+	if devs[0].LastCheckTime != checkTime.Format(time.RFC3339) || devs[1].LastCheckTime != checkTime.Format(time.RFC3339) {
+		t.Errorf("expected LastCheckTime to be %s", checkTime.Format(time.RFC3339))
+	}
+
+	// 2. Update Help Watermark
+	helpLogTimeOnline, _ := time.Parse(time.RFC3339, "2026-11-01T09:20:00+07:00")
+	helpDeviceMaxTimes := map[string]time.Time{
+		"dev-online": helpLogTimeOnline,
+	}
+	if err := cfg.UpdateDevicesHelpSyncTime(helpDeviceMaxTimes, checkTime); err != nil {
+		t.Fatalf("UpdateDevicesHelpSyncTime error: %v", err)
+	}
+
+	devsAfterHelp := cfg.GetDevices()
+	if devsAfterHelp[0].HelpLastSyncTime != helpLogTimeOnline.Format(time.RFC3339) {
+		t.Errorf("expected dev-online help watermark %s, got %s", helpLogTimeOnline.Format(time.RFC3339), devsAfterHelp[0].HelpLastSyncTime)
+	}
+	if devsAfterHelp[1].HelpLastSyncTime != "2026-10-30T17:00:00+07:00" {
+		t.Errorf("expected dev-offline help watermark to stay 2026-10-30T17:00:00+07:00, but got %s", devsAfterHelp[1].HelpLastSyncTime)
 	}
 }
 

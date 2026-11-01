@@ -21,7 +21,7 @@ func (s *FileStorageAdapter) WriteOvertimeRecords(ctx context.Context, records [
 		return "", fmt.Errorf("failed to create overtime folder: %w", err)
 	}
 
-	filename := model.GenerateTXTFilename("overtime", targetDate, targetDate)
+	filename := model.GenerateTXTFilename("OT", targetDate, targetDate)
 	filePath := filepath.Join(dirPath, filename)
 
 	content := model.FormatAccessRecordsToTXT(records)

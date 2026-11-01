@@ -267,32 +267,31 @@ func (c *Config) SaveDevices(devices []model.DeviceItem) error {
 }
 
 // GetInitialSyncTime returns the starting time when a device/service has never synced or is reset.
-// If InitialLookbackHours > 0, returns now - initialLookbackHours.
-// If InitialLookbackHours <= 0, returns the start of the current day (00:00:00).
+// It is strictly determined by MaxLookbackDays (defaults to 7 days).
 func (c *Config) GetInitialSyncTime(serviceType string) time.Time {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
 	now := time.Now()
-	lookbackHours := 0
-
+	maxDays := 7
 	switch strings.ToLower(serviceType) {
 	case "help":
-		lookbackHours = c.Jobs.Help.InitialLookbackHours
-	case "overtime":
-		lookbackHours = c.Jobs.Overtime.InitialLookbackHours
-		if lookbackHours == 0 {
-			lookbackHours = c.Jobs.Attendance.InitialLookbackHours
+		if c.Jobs.Help.MaxLookbackDays > 0 {
+			maxDays = c.Jobs.Help.MaxLookbackDays
 		}
-	default: // attendance / access_records
-		lookbackHours = c.Jobs.Attendance.InitialLookbackHours
+	case "overtime":
+		if c.Jobs.Overtime.MaxLookbackDays > 0 {
+			maxDays = c.Jobs.Overtime.MaxLookbackDays
+		} else if c.Jobs.Attendance.MaxLookbackDays > 0 {
+			maxDays = c.Jobs.Attendance.MaxLookbackDays
+		}
+	default:
+		if c.Jobs.Attendance.MaxLookbackDays > 0 {
+			maxDays = c.Jobs.Attendance.MaxLookbackDays
+		}
 	}
 
-	if lookbackHours > 0 {
-		return now.Add(-time.Duration(lookbackHours) * time.Hour)
-	}
-
-	return time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	return now.AddDate(0, 0, -maxDays)
 }
 
 // GetMaxLookbackDays returns the maximum safety lookback window in days (defaults to 7 if unconfigured or <= 0).
@@ -351,6 +350,7 @@ func (c *Config) GetEarliestDeviceSyncTime(serviceType string) (time.Time, bool)
 	maxLookback := now.AddDate(0, 0, -maxDays)
 
 	formats := []string{
+		time.RFC3339Nano,
 		time.RFC3339,
 		"2006-01-02T15:04:05",
 		"2006-01-02 15:04:05",
@@ -399,8 +399,9 @@ func (c *Config) GetEarliestDeviceSyncTime(serviceType string) (time.Time, bool)
 	return earliest, true
 }
 
-// UpdateDevicesAttendanceSyncTime updates attendanceLastSyncTime for each device to the completed sync window end
-func (c *Config) UpdateDevicesAttendanceSyncTime(deviceMaxTimes map[string]time.Time, fallbackTime time.Time) error {
+// UpdateDevicesAttendanceSyncTime updates attendanceLastSyncTime for devices that have new records.
+// It uses the latest record timestamp (maxT) from the fetched logs. Devices without records retain their existing watermark.
+func (c *Config) UpdateDevicesAttendanceSyncTime(deviceMaxTimes map[string]time.Time, checkTime time.Time) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -408,26 +409,81 @@ func (c *Config) UpdateDevicesAttendanceSyncTime(deviceMaxTimes map[string]time.
 		return nil
 	}
 
+	formats := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02T15:04:05",
+		"2006-01-02 15:04:05",
+	}
+
+	checkTimeStr := ""
+	if !checkTime.IsZero() {
+		checkTimeStr = checkTime.Format(time.RFC3339)
+	}
+
+	updated := false
+
 	for i := range c.Devices {
 		if !c.Devices[i].Enabled {
 			continue
 		}
 
-		devID := c.Devices[i].ID
-		devCode := c.Devices[i].GetCode()
-		devName := c.Devices[i].Name
-
-		targetTime := fallbackTime
-		if maxT, exists := deviceMaxTimes[devID]; exists && maxT.After(targetTime) {
-			targetTime = maxT
-		} else if maxT, exists := deviceMaxTimes[devCode]; devCode != "" && exists && maxT.After(targetTime) {
-			targetTime = maxT
-		} else if maxT, exists := deviceMaxTimes[devName]; exists && maxT.After(targetTime) {
-			targetTime = maxT
+		if checkTimeStr != "" {
+			c.Devices[i].LastCheckTime = checkTimeStr
+			updated = true
 		}
 
-		c.Devices[i].AttendanceLastSyncTime = targetTime.Format(time.RFC3339)
-		c.Devices[i].LastSyncTime = targetTime.Format(time.RFC3339)
+		devID := strings.TrimSpace(c.Devices[i].ID)
+		devCode := strings.TrimSpace(c.Devices[i].GetCode())
+		devName := strings.TrimSpace(c.Devices[i].Name)
+
+		// Determine the latest record timestamp for this device from the fetched batch
+		var maxT time.Time
+		if t, exists := deviceMaxTimes[devID]; exists && t.After(maxT) {
+			maxT = t
+		}
+		if devCode != "" {
+			if t, exists := deviceMaxTimes[devCode]; exists && t.After(maxT) {
+				maxT = t
+			}
+		}
+		if devName != "" {
+			if t, exists := deviceMaxTimes[devName]; exists && t.After(maxT) {
+				maxT = t
+			}
+		}
+
+		// If no record was found for this device, keep existing watermark unchanged!
+		if maxT.IsZero() {
+			continue
+		}
+
+		// Parse current sync time
+		var currentSync time.Time
+		timeStr := strings.TrimSpace(c.Devices[i].AttendanceLastSyncTime)
+		if timeStr == "" {
+			timeStr = strings.TrimSpace(c.Devices[i].LastSyncTime)
+		}
+		if timeStr != "" {
+			for _, fmtStr := range formats {
+				if t, err := time.Parse(fmtStr, timeStr); err == nil {
+					currentSync = t
+					break
+				}
+			}
+		}
+
+		// Only advance watermark if max record time is strictly newer than current watermark
+		if currentSync.IsZero() || maxT.After(currentSync) {
+			newTimeStr := maxT.Format(time.RFC3339Nano)
+			c.Devices[i].AttendanceLastSyncTime = newTimeStr
+			c.Devices[i].LastSyncTime = newTimeStr
+			updated = true
+		}
+	}
+
+	if !updated {
+		return nil
 	}
 
 	// Persist to devices.json
@@ -438,8 +494,9 @@ func (c *Config) UpdateDevicesAttendanceSyncTime(deviceMaxTimes map[string]time.
 	return os.WriteFile(c.DevicesFilePath, devData, 0644)
 }
 
-// UpdateDevicesHelpSyncTime updates helpLastSyncTime for each device to the completed sync window end
-func (c *Config) UpdateDevicesHelpSyncTime(deviceMaxTimes map[string]time.Time, fallbackTime time.Time) error {
+// UpdateDevicesHelpSyncTime updates helpLastSyncTime for devices that have new records.
+// It uses the latest record timestamp (maxT) from the fetched help logs. Devices without records retain their existing watermark.
+func (c *Config) UpdateDevicesHelpSyncTime(deviceMaxTimes map[string]time.Time, checkTime time.Time) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -447,25 +504,77 @@ func (c *Config) UpdateDevicesHelpSyncTime(deviceMaxTimes map[string]time.Time, 
 		return nil
 	}
 
+	formats := []string{
+		time.RFC3339Nano,
+		time.RFC3339,
+		"2006-01-02T15:04:05",
+		"2006-01-02 15:04:05",
+	}
+
+	checkTimeStr := ""
+	if !checkTime.IsZero() {
+		checkTimeStr = checkTime.Format(time.RFC3339)
+	}
+
+	updated := false
+
 	for i := range c.Devices {
 		if !c.Devices[i].Enabled {
 			continue
 		}
 
-		devID := c.Devices[i].ID
-		devCode := c.Devices[i].GetCode()
-		devName := c.Devices[i].Name
-
-		targetTime := fallbackTime
-		if maxT, exists := deviceMaxTimes[devID]; exists && maxT.After(targetTime) {
-			targetTime = maxT
-		} else if maxT, exists := deviceMaxTimes[devCode]; devCode != "" && exists && maxT.After(targetTime) {
-			targetTime = maxT
-		} else if maxT, exists := deviceMaxTimes[devName]; exists && maxT.After(targetTime) {
-			targetTime = maxT
+		if checkTimeStr != "" {
+			c.Devices[i].LastCheckTime = checkTimeStr
+			updated = true
 		}
 
-		c.Devices[i].HelpLastSyncTime = targetTime.Format(time.RFC3339)
+		devID := strings.TrimSpace(c.Devices[i].ID)
+		devCode := strings.TrimSpace(c.Devices[i].GetCode())
+		devName := strings.TrimSpace(c.Devices[i].Name)
+
+		// Determine the latest record timestamp for this device from the fetched batch
+		var maxT time.Time
+		if t, exists := deviceMaxTimes[devID]; exists && t.After(maxT) {
+			maxT = t
+		}
+		if devCode != "" {
+			if t, exists := deviceMaxTimes[devCode]; exists && t.After(maxT) {
+				maxT = t
+			}
+		}
+		if devName != "" {
+			if t, exists := deviceMaxTimes[devName]; exists && t.After(maxT) {
+				maxT = t
+			}
+		}
+
+		// If no record was found for this device, keep existing watermark unchanged!
+		if maxT.IsZero() {
+			continue
+		}
+
+		// Parse current sync time
+		var currentSync time.Time
+		timeStr := strings.TrimSpace(c.Devices[i].HelpLastSyncTime)
+		if timeStr != "" {
+			for _, fmtStr := range formats {
+				if t, err := time.Parse(fmtStr, timeStr); err == nil {
+					currentSync = t
+					break
+				}
+			}
+		}
+
+		// Only advance watermark if max record time is strictly newer than current watermark
+		if currentSync.IsZero() || maxT.After(currentSync) {
+			newTimeStr := maxT.Format(time.RFC3339Nano)
+			c.Devices[i].HelpLastSyncTime = newTimeStr
+			updated = true
+		}
+	}
+
+	if !updated {
+		return nil
 	}
 
 	// Persist to devices.json

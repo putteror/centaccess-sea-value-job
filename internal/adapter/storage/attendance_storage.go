@@ -21,7 +21,7 @@ func (s *FileStorageAdapter) WriteAttendanceRecords(ctx context.Context, records
 		return "", fmt.Errorf("failed to create attendance folder: %w", err)
 	}
 
-	filename := model.GenerateTXTFilename("attendance", targetDate, targetDate)
+	filename := model.GenerateTXTFilename("AT", targetDate, targetDate)
 	filePath := filepath.Join(dirPath, filename)
 
 	content := model.FormatAccessRecordsToTXT(records)

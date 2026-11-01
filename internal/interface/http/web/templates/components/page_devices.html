@@ -121,27 +121,16 @@
     </div>
 
     <!-- Sync Lookback Limits & Safety Window -->
-    <div class="pt-4 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs bg-slate-50/50 p-3 rounded-lg border border-slate-200">
+    <div class="pt-4 border-t border-slate-100 text-xs bg-slate-50/50 p-3 rounded-lg border border-slate-200">
       <div class="space-y-1">
         <label class="font-bold text-slate-800 flex items-center justify-between">
-          <span>Initial Lookback (เมื่อเป็น Never / Reset)</span>
-          <span class="text-blue-600 font-mono text-[11px]">ชม. (Hours)</span>
-        </label>
-        <div class="flex items-center gap-2">
-          <input type="number" id="job_initial_lookback_hours" min="0" max="168" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 font-mono text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs font-bold" placeholder="24">
-        </div>
-        <p class="text-[11px] text-slate-500">จำนวนชั่วโมงที่ดึงย้อนหลังเมื่ออุปกรณ์ไม่มี Watermark (เช่น 24 ชม., 2 ชม. หรือใส่ 0 = ดึงตั้งแต่ 00:00:00 ต้นวัน)</p>
-      </div>
-
-      <div class="space-y-1">
-        <label class="font-bold text-slate-800 flex items-center justify-between">
-          <span>Max Lookback Safety Cap (เพดานจำกัดดึงย้อนหลังสูงสุด)</span>
+          <span>จำกัดการดึงย้อนหลังสูงสุด (Max Lookback Days)</span>
           <span class="text-purple-600 font-mono text-[11px]">วัน (Days)</span>
         </label>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 max-w-xs">
           <input type="number" id="job_max_lookback_days" min="1" max="90" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 font-mono text-slate-800 focus:outline-none focus:ring-1 focus:ring-blue-500 text-xs font-bold" placeholder="7">
         </div>
-        <p class="text-[11px] text-slate-500">ป้องกันไม่ให้ดึงข้อมูลย้อนหลังเกินเพดานที่กำหนด แม้เครื่องจะมี Watermark ค้างเก่ามาก (ค่าเริ่มต้น 7 วัน)</p>
+        <p class="text-[11px] text-slate-500">กำหนดระยะเวลาสูงสุดที่ระบบจะดึงย้อนหลัง ทั้งสำหรับเครื่องที่ยังไม่เคยมีประวัติ (Never) และเครื่องที่ออฟไลน์ไปนาน เพื่อความปลอดภัยของระบบ (ค่าเริ่มต้น 7 วัน)</p>
       </div>
     </div>
 
