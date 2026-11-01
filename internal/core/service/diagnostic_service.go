@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/putteror/sea-value/internal/config"
+	"github.com/putteror/sea-value/internal/core/model"
 	"github.com/putteror/sea-value/internal/core/port"
 )
 
@@ -23,6 +24,7 @@ type PreviewResult struct {
 	RecordCount        int         `json:"recordCount"`
 	AttendanceRecords  int         `json:"attendanceRecords,omitempty"`
 	OvertimeRecords    int         `json:"overtimeRecords,omitempty"`
+	HelpRecords        int         `json:"helpRecords,omitempty"`
 	ExcludeDeviceNames []string    `json:"excludeDeviceNames,omitempty"`
 	ExcludeDeviceIDs   []string    `json:"excludeDeviceIDs,omitempty"`
 	TargetDeviceNames  []string    `json:"targetDeviceNames,omitempty"`
@@ -256,13 +258,32 @@ func (s *diagnosticServiceImpl) PreviewHelp(ctx context.Context, start, end time
 	}
 
 	params := url.Values{}
+	params.Set("startCheckInTime", start.Format(time.RFC3339))
+	params.Set("endCheckInTime", end.Format(time.RFC3339))
+	params.Set("startDateTime", start.Format(time.RFC3339))
+	params.Set("endDateTime", end.Format(time.RFC3339))
 	params.Set("startDate", start.Format("2006-01-02"))
 	params.Set("endDate", end.Format("2006-01-02"))
 	params.Set("page", "1")
 	params.Set("limit", "100")
 
-	reqURL := fmt.Sprintf("%s/api/help-records/?%s", baseURL, params.Encode())
+	// Primary endpoint for overtime/help in CentAccess is /api/overtime/records
+	reqURL := fmt.Sprintf("%s/api/overtime/records?%s", baseURL, params.Encode())
 	statusCode, statusText, latency, bodyBytes, err := s.executeRequest(ctx, reqURL)
+
+	// Fallback to /api/help-records/ if /api/overtime/records returns 404
+	if statusCode == http.StatusNotFound {
+		fallbackURL := fmt.Sprintf("%s/api/help-records/?%s", baseURL, params.Encode())
+		fbCode, fbStatus, fbLatency, fbBytes, fbErr := s.executeRequest(ctx, fallbackURL)
+		if fbErr == nil && fbCode >= 200 && fbCode < 300 {
+			reqURL = fallbackURL
+			statusCode = fbCode
+			statusText = fbStatus
+			latency = fbLatency
+			bodyBytes = fbBytes
+			err = nil
+		}
+	}
 
 	timeRangeStr := fmt.Sprintf("%s to %s", start.Format("2006-01-02 15:04:05"), end.Format("2006-01-02 15:04:05"))
 
@@ -283,17 +304,50 @@ func (s *diagnosticServiceImpl) PreviewHelp(ctx context.Context, start, end time
 		rawJSON = string(bodyBytes)
 	}
 
+	// Parse records and count completed check-in & check-out records
+	var helpRecords []model.HelpRecord
 	var count int = 0
-	var resDataArr struct {
-		Data []interface{} `json:"data"`
+
+	var shape1 struct {
+		Data []model.HelpRecord `json:"data"`
 		Page struct {
 			Total int `json:"total"`
 		} `json:"page"`
 	}
-	if err := json.Unmarshal(bodyBytes, &resDataArr); err == nil {
-		count = len(resDataArr.Data)
-		if resDataArr.Page.Total > 0 {
-			count = resDataArr.Page.Total
+	if err := json.Unmarshal(bodyBytes, &shape1); err == nil && shape1.Data != nil {
+		helpRecords = shape1.Data
+		count = len(shape1.Data)
+		if shape1.Page.Total > 0 {
+			count = shape1.Page.Total
+		}
+	} else {
+		var shape2 struct {
+			Data struct {
+				Items      []model.HelpRecord `json:"items"`
+				Pagination struct {
+					Total int `json:"total"`
+				} `json:"pagination"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(bodyBytes, &shape2); err == nil && shape2.Data.Items != nil {
+			helpRecords = shape2.Data.Items
+			count = len(shape2.Data.Items)
+			if shape2.Data.Pagination.Total > 0 {
+				count = shape2.Data.Pagination.Total
+			}
+		} else {
+			var shape3 []model.HelpRecord
+			if err := json.Unmarshal(bodyBytes, &shape3); err == nil {
+				helpRecords = shape3
+				count = len(shape3)
+			}
+		}
+	}
+
+	completedCount := 0
+	for _, r := range helpRecords {
+		if r.HasCheckInAndOut() {
+			completedCount++
 		}
 	}
 
@@ -305,6 +359,7 @@ func (s *diagnosticServiceImpl) PreviewHelp(ctx context.Context, start, end time
 		StatusText:  statusText,
 		LatencyMs:   latency,
 		RecordCount: count,
+		HelpRecords: completedCount,
 		TimeRange:   timeRangeStr,
 		RawResponse: rawJSON,
 	}, nil

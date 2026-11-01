@@ -4,9 +4,12 @@ package model
 type PeopleImportRow struct {
 	FirstName    string   `json:"firstName"`
 	LastName     string   `json:"lastName"`
+	PersonType   string   `json:"personType,omitempty"` // "PERMANENT" or "TEMPORARY"
 	PersonCode   string   `json:"personCode"`
 	CitizenID    string   `json:"citizenId,omitempty"`
 	Department   string   `json:"department"`
+	Category     string   `json:"category,omitempty"`
+	RuleCode     string   `json:"ruleCode,omitempty"`
 	Position     string   `json:"position,omitempty"`
 	Email        string   `json:"email,omitempty"`
 	Phone        string   `json:"phone,omitempty"`

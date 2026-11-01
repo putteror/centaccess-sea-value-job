@@ -17,4 +17,5 @@ type ExcelReaderPort interface {
 	ReadPeopleExcel(filePath string) ([]model.PeopleImportRow, error)
 	ListPendingPeopleFiles() ([]string, error)
 	MoveProcessedFile(filePath string) error
+	EnrichExcelWithRules(filePath string, ruleLookup func(deptCode, category string) string) (int, error)
 }

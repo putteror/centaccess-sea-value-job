@@ -124,12 +124,69 @@
       </div>
 
       <div class="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-        <button type="button" onclick="executeSync('people')" id="btn-sync-people" class="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs transition-colors shadow-xs cursor-pointer text-center">
-          Scan & Import Now
+        <button type="button" onclick="openPeopleUploadModal()" class="flex-1 py-2 px-3 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-medium text-xs transition-colors border border-emerald-200 cursor-pointer text-center flex items-center justify-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+          </svg>
+          <span>Upload Excel</span>
+        </button>
+        <button type="button" onclick="executeSync('people')" id="btn-sync-people" class="flex-1 py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs transition-colors shadow-xs cursor-pointer text-center">
+          Scan Folder Now
         </button>
       </div>
     </div>
 
+  </div>
+
+  <!-- MODAL: People Excel Upload Modal -->
+  <div id="peopleUploadModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white border border-slate-200 rounded-xl max-w-md w-full shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
+      <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+        <div>
+          <h3 class="font-bold text-slate-900 text-sm">Upload People Excel</h3>
+          <p class="text-[11px] text-slate-500">อัปโหลดไฟล์รายชื่อพนักงานเข้าสู่ CentAccess</p>
+        </div>
+        <button type="button" onclick="closePeopleUploadModal()" class="w-7 h-7 rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer text-xs">
+          ✕
+        </button>
+      </div>
+
+      <form onsubmit="submitPeopleUploadForm(event)" class="p-5 space-y-4 text-xs">
+        <div class="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 space-y-1">
+          <div class="font-bold text-[11px]">รูปแบบไฟล์ที่รองรับ</div>
+          <p class="text-[11px] text-emerald-700 leading-relaxed">
+            รองรับไฟล์ <strong>.xlsx, .xls, .csv</strong> ไฟล์จะถูกส่งไปยัง <code>data/people/</code> และนำเข้าสู่ CentAccess API ทันที
+          </p>
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="font-bold text-slate-700 block">เลือกไฟล์พนักงาน (.xlsx / .xls / .csv)</label>
+          <input type="file" id="peopleExcelFileInput" accept=".xlsx,.xls,.csv" required class="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 cursor-pointer border border-slate-300 rounded-lg p-1.5 bg-slate-50">
+        </div>
+
+        <div class="space-y-1.5">
+          <label class="font-bold text-slate-700 block">Person Type <span class="text-slate-400 font-normal">(ค่า Default กรณีในไฟล์ไม่ระบุ)</span></label>
+          <select id="peopleUploadPersonType" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-emerald-500 font-medium">
+            <option value="PERMANENT" selected>PERMANENT (พนักงานประจำ)</option>
+            <option value="TEMPORARY">TEMPORARY (ชั่วคราว / ผู้มาติดต่อ)</option>
+          </select>
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <input type="checkbox" id="peopleUploadAutoProcess" checked class="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer">
+          <label for="peopleUploadAutoProcess" class="text-slate-700 cursor-pointer">ประมวลผลและนำเข้าสู่ระบบทันที (Process immediately)</label>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+          <button type="button" onclick="closePeopleUploadModal()" class="px-3.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-medium text-xs cursor-pointer transition-colors">
+            ยกเลิก
+          </button>
+          <button type="submit" id="btn-submit-upload-people" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs cursor-pointer transition-colors flex items-center gap-1.5">
+            <span>อัปโหลดและนำเข้า</span>
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 </section>
 {{end}}

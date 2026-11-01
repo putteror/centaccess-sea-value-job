@@ -2,7 +2,7 @@
   "httpPort": "9090",
   "exportBaseDir": "./data",
   "logLevel": "info",
-  "appToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImRlbW9fYWRtaW4iLCJhY2NvdW50SWQiOiJhMzBjYzhlYy1jZDFjLTQyYTQtYjE4My1hODJlMzllNDgzZGUiLCJ0ZW5hbnRJZCI6IjkyYjZiNGNhLTkxMDgtNDkxNC1iOGY4LTVjNGQ5NDQwYWMxZSIsInRlbmFudE5hbWUiOiJERU1PIiwidGVuYW50TGV2ZWwiOiIiLCJyb2xlIjoiQURNSU4iLCJkZWZhdWx0RGFzaGJvYXJkIjoiY29yZSIsImlzQWxsQnJhbmNoZXMiOnRydWUsImV4cCI6MTc5MzU4NzI1NiwiaWF0IjoxNzkzNTAwODU2fQ.X2b1a0-5LVLq8oVw7XhJfKUszMWBuqorpNYmD8kBMtc",
+  "appToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImRlbW9fYWRtaW4iLCJhY2NvdW50SWQiOiJhMzBjYzhlYy1jZDFjLTQyYTQtYjE4My1hODJlMzllNDgzZGUiLCJ0ZW5hbnRJZCI6IjkyYjZiNGNhLTkxMDgtNDkxNC1iOGY4LTVjNGQ5NDQwYWMxZSIsInRlbmFudE5hbWUiOiJERU1PIiwidGVuYW50TGV2ZWwiOiIiLCJyb2xlIjoiQURNSU4iLCJkZWZhdWx0RGFzaGJvYXJkIjoiY29yZSIsImlzQWxsQnJhbmNoZXMiOnRydWUsImV4cCI6MTc5MzU5MzMwNiwiaWF0IjoxNzkzNTA2OTA2fQ.zNrM6saEwHatMe6ECd6VmG2tLISzbIUk8SYeWL4z7FI",
   "schedules": [
     {
       "id": "sch_att_1",
@@ -62,7 +62,7 @@
     "help": {
       "exportFolder": "help",
       "format": "txt",
-      "maxLookbackDays": 7
+      "maxLookbackDays": 30
     },
     "peopleImport": {
       "inputFolder": "people",

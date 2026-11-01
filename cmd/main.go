@@ -39,7 +39,8 @@ func main() {
 	// 3. Initialize Core Domain Services
 	attendanceService := service.NewAttendanceSyncService(cfg, apiClient, fileStorage)
 	helpService := service.NewHelpSyncService(cfg, apiClient, fileStorage)
-	peopleImportService := service.NewPeopleImportService(apiClient, excelReader)
+	deptRuleService := service.NewDepartmentRuleService(cfg)
+	peopleImportService := service.NewPeopleImportService(apiClient, excelReader, deptRuleService)
 	deviceService := service.NewDeviceService(cfg, apiClient)
 	diagnosticService := service.NewDiagnosticService(cfg, apiClient, deviceService)
 	syncOrchestrator := service.NewSyncOrchestratorService(attendanceService, helpService, peopleImportService)
@@ -64,6 +65,7 @@ func main() {
 		deviceService,
 		diagnosticService,
 		syncOrchestrator,
+		deptRuleService,
 		scheduler,
 	)
 	router := httpinterface.NewRouter(configHandler)

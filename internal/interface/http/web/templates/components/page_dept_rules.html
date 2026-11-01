@@ -1,0 +1,182 @@
+{{define "page_dept_rules"}}
+<section class="space-y-4">
+  
+  <!-- Header Bar -->
+  <div class="bg-white border border-slate-200 rounded-xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <div class="flex items-center gap-2.5">
+        <h2 class="text-base font-bold text-slate-900">Department & Category Rule Mapping</h2>
+        <span id="deptRulesCountBadge" class="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200 font-mono">
+          0 Mappings
+        </span>
+      </div>
+      <p class="text-xs text-slate-500 mt-0.5">กำหนดการจับคู่ระหว่าง Department Code + Category เพื่อแปลงเป็น Rule ในระบบ Sea Value</p>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="flex flex-wrap items-center gap-2">
+      <!-- Download Template -->
+      <a href="/api/department-rules/template" download="department_rules_template.xlsx" class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-medium text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5" title="Download Excel template">
+        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+        </svg>
+        <span>Template</span>
+      </a>
+
+      <!-- Export Current Data -->
+      <a href="/api/department-rules/export" download class="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-medium text-xs shadow-2xs transition-colors cursor-pointer flex items-center gap-1.5" title="Export current mappings to Excel">
+        <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+        </svg>
+        <span>Export</span>
+      </a>
+
+      <!-- Import Excel Button -->
+      <button type="button" onclick="openImportDeptRulesModal()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+        </svg>
+        <span>Import Excel</span>
+      </button>
+
+      <!-- Add Mapping Button -->
+      <button type="button" onclick="openDeptRuleModal()" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium text-xs shadow-xs transition-colors cursor-pointer flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+        </svg>
+        <span>+ Add Rule</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search & Filter Bar -->
+  <div class="bg-white border border-slate-200 rounded-xl p-3 shadow-xs flex items-center justify-between gap-3">
+    <div class="relative flex-1 max-w-sm">
+      <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        </svg>
+      </div>
+      <input type="text" id="deptRulesSearchInput" oninput="filterDeptRulesTable()" placeholder="ค้นหา Department, Category หรือ Rule..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 font-medium">
+    </div>
+    <button type="button" onclick="loadDeptRules()" class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-medium cursor-pointer transition-colors flex items-center gap-1" title="Refresh">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+      </svg>
+      <span>รีเฟรช</span>
+    </button>
+  </div>
+
+  <!-- Table Container -->
+  <div class="bg-white border border-slate-200 rounded-xl shadow-xs overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-left text-xs">
+        <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold uppercase tracking-wider text-[11px]">
+          <tr>
+            <th class="py-3 px-4 w-12 text-center">#</th>
+            <th class="py-3 px-4">Department Code</th>
+            <th class="py-3 px-4">Category</th>
+            <th class="py-3 px-4">Rule Code</th>
+            <th class="py-3 px-4">Last Updated</th>
+            <th class="py-3 px-4 w-28 text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="deptRulesTableBody" class="divide-y divide-slate-100">
+          <!-- Populated via JS -->
+          <tr>
+            <td colspan="6" class="py-8 text-center text-slate-400">กำลังโหลดข้อมูล...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</section>
+
+<!-- MODAL 1: Add / Edit Department Rule -->
+<div id="deptRuleModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-white border border-slate-200 rounded-xl max-w-md w-full shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
+    <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+      <h3 id="deptRuleModalTitle" class="font-bold text-slate-900 text-sm">Add Department Rule</h3>
+      <button type="button" onclick="closeDeptRuleModal()" class="w-7 h-7 rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer text-xs">
+        ✕
+      </button>
+    </div>
+
+    <form onsubmit="submitDeptRuleForm(event)" class="p-5 space-y-4 text-xs">
+      <input type="hidden" id="deptRuleForm_origDeptCode" value="">
+      <input type="hidden" id="deptRuleForm_origCategory" value="">
+
+      <div class="space-y-1">
+        <label class="font-bold text-slate-700 block">Department Code <span class="text-rose-500">*</span></label>
+        <input type="text" id="deptRuleForm_deptCode" required placeholder="เช่น C-1111 หรือ D01" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-mono text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 uppercase">
+        <p class="text-[11px] text-slate-400">รหัสแผนกที่ตรงกับในระบบ CentAccess</p>
+      </div>
+
+      <div class="space-y-1">
+        <label class="font-bold text-slate-700 block">Category / ประเภทพนักงาน <span class="text-slate-400 font-normal">(เว้นว่างได้)</span></label>
+        <input type="text" id="deptRuleForm_category" placeholder="เช่น MONTHLY, DAILY หรือเว้นว่างสำหรับทุก Category" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-mono text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 uppercase">
+        <p class="text-[11px] text-slate-400">หมวดหมู่/ประเภท (หากเว้นว่าง ระบบจะใช้เป็น Default Rule ประจำแผนก)</p>
+      </div>
+
+      <div class="space-y-1">
+        <label class="font-bold text-slate-700 block">Rule Code <span class="text-rose-500">*</span></label>
+        <input type="text" id="deptRuleForm_ruleCode" required placeholder="เช่น RULE-01 หรือ R001" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 font-mono text-slate-800 text-xs focus:bg-white focus:outline-none focus:ring-1 focus:ring-blue-500 uppercase">
+        <p class="text-[11px] text-slate-400">รหัสกฎหรือกะการทำงานสำหรับใช้ map ใน Sea Value</p>
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+        <button type="button" onclick="closeDeptRuleModal()" class="px-3.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-medium text-xs cursor-pointer transition-colors">
+          ยกเลิก
+        </button>
+        <button type="submit" id="btn-save-dept-rule" class="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs shadow-xs cursor-pointer transition-colors">
+          บันทึกข้อมูล
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL 2: Import Excel Modal -->
+<div id="importDeptRulesModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden flex items-center justify-center p-4">
+  <div class="bg-white border border-slate-200 rounded-xl max-w-md w-full shadow-xl overflow-hidden animate-in fade-in zoom-in duration-150">
+    <div class="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+      <h3 class="font-bold text-slate-900 text-sm">Import Department & Category Rules from Excel</h3>
+      <button type="button" onclick="closeImportDeptRulesModal()" class="w-7 h-7 rounded-md hover:bg-slate-200 text-slate-400 hover:text-slate-700 flex items-center justify-center transition-colors cursor-pointer text-xs">
+        ✕
+      </button>
+    </div>
+
+    <form onsubmit="submitImportDeptRulesForm(event)" class="p-5 space-y-4 text-xs">
+      <div class="p-3 rounded-lg bg-blue-50 border border-blue-200 text-blue-900 space-y-1">
+        <div class="font-bold text-[11px] flex items-center gap-1.5">
+          <span>คำแนะนำโครงสร้าง Excel</span>
+        </div>
+        <p class="text-[11px] text-blue-700 leading-relaxed">
+          ไฟล์รองรับทั้งแบบ 3 คอลัมน์ (<strong>Department Code</strong>, <strong>Category</strong>, <strong>Rule Code</strong>) หรือ 2 คอลัมน์แบบเดิม (Department Code, Rule Code) หากข้อมูลซ้ำกันระบบจะอัปเดตให้อัตโนมัติ
+        </p>
+        <div class="pt-1">
+          <a href="/api/department-rules/template" download="department_rules_template.xlsx" class="text-blue-600 font-semibold underline hover:text-blue-800 text-[11px]">
+            📥 ดาวน์โหลดไฟล์ตัวอย่าง (Template .xlsx)
+          </a>
+        </div>
+      </div>
+
+      <!-- File Picker -->
+      <div class="space-y-1.5">
+        <label class="font-bold text-slate-700 block">เลือกไฟล์ Excel (.xlsx / .xls)</label>
+        <input type="file" id="deptRulesExcelFileInput" accept=".xlsx,.xls" required class="w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer border border-slate-300 rounded-lg p-1.5 bg-slate-50">
+      </div>
+
+      <div class="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+        <button type="button" onclick="closeImportDeptRulesModal()" class="px-3.5 py-1.5 rounded-lg bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-medium text-xs cursor-pointer transition-colors">
+          ยกเลิก
+        </button>
+        <button type="submit" id="btn-submit-import-dept-rules" class="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs shadow-xs cursor-pointer transition-colors flex items-center gap-1.5">
+          <span>อัปโหลดและนำเข้า</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{{end}}

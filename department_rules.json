@@ -1,0 +1,24 @@
+[
+  {
+    "departmentCode": "C-1112",
+    "ruleCode": "RULE-02",
+    "updatedAt": "2026-11-01 11:18:45"
+  },
+  {
+    "departmentCode": "ENGINEERING",
+    "ruleCode": "A0001",
+    "updatedAt": "2026-11-01 11:56:27"
+  },
+  {
+    "departmentCode": "C-1111",
+    "category": "TEST",
+    "ruleCode": "EEEE",
+    "updatedAt": "2026-11-01 21:47:58"
+  },
+  {
+    "departmentCode": "C-1111",
+    "category": "MANAGEMENT",
+    "ruleCode": "AAAA",
+    "updatedAt": "2026-11-01 21:48:19"
+  }
+]

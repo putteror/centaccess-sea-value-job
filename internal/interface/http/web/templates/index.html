@@ -39,7 +39,12 @@
         {{template "schedules" .}}
       </div>
 
-      <!-- Page 4: Activity Console & Logs -->
+      <!-- Page 4: Department & Rule Mapping -->
+      <div id="view-dept-rules" class="page-view space-y-6 hidden">
+        {{template "page_dept_rules" .}}
+      </div>
+
+      <!-- Page 5: Activity Console & Logs -->
       <div id="view-logs" class="page-view space-y-6 hidden">
         {{template "console" .}}
       </div>

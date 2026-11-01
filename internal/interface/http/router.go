@@ -41,6 +41,7 @@ func (r *Router) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/sync/overtime", r.configHandler.TriggerOvertimeSync)
 	mux.HandleFunc("/api/sync/help", r.configHandler.TriggerHelpSync)
 	mux.HandleFunc("/api/sync/people", r.configHandler.TriggerPeopleImport)
+	mux.HandleFunc("/api/people/upload", r.configHandler.UploadPeopleExcel)
 	mux.HandleFunc("/api/sync/all", r.configHandler.TriggerSyncAll)
 	mux.HandleFunc("/api/sync/continue", r.configHandler.TriggerContinueSync)
 	mux.HandleFunc("/api/sync/export-txt", r.configHandler.ExportTXTFile)
@@ -56,4 +57,21 @@ func (r *Router) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/devices/sync", r.configHandler.SyncDevicesFromCentAccess)
 	mux.HandleFunc("/api/devices/reset-watermark", r.configHandler.ResetDeviceWatermark)
 	mux.HandleFunc("/api/config/devices", r.configHandler.UpdateDevicesConfig)
+
+	// 6. Department Rules Endpoints (CRUD, Excel Import, Export, Template)
+	mux.HandleFunc("/api/department-rules", func(w http.ResponseWriter, req *http.Request) {
+		switch req.Method {
+		case http.MethodGet:
+			r.configHandler.GetDepartmentRules(w, req)
+		case http.MethodPost:
+			r.configHandler.UpsertDepartmentRule(w, req)
+		case http.MethodDelete:
+			r.configHandler.DeleteDepartmentRule(w, req)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/department-rules/import", r.configHandler.ImportDepartmentRulesExcel)
+	mux.HandleFunc("/api/department-rules/template", r.configHandler.DownloadDepartmentRulesTemplate)
+	mux.HandleFunc("/api/department-rules/export", r.configHandler.ExportDepartmentRulesExcel)
 }

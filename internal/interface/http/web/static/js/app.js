@@ -15,11 +15,12 @@ let deviceSearchQuery = '';
 function switchPage(pageId) {
   activePage = pageId;
 
-  const pages = ['dashboard', 'devices', 'schedules', 'logs'];
+  const pages = ['dashboard', 'devices', 'schedules', 'dept-rules', 'logs'];
   const titles = {
     dashboard: { title: 'Dashboard & Sync', subtitle: 'Overview of manual sync operations and core service metrics' },
     devices: { title: 'Device Registry', subtitle: 'Manage access control scanners, OT gate classification & sync watermarks' },
     schedules: { title: 'Cron Schedules', subtitle: 'Configure automated background intervals and cron tasks' },
+    'dept-rules': { title: 'Department Rules', subtitle: 'Manage Department Code and Rule Code mappings for Sea Value integration' },
     logs: { title: 'Activity Console', subtitle: 'Live activity feed, API communications and background execution logs' }
   };
 
@@ -631,7 +632,7 @@ async function loadInitialData() {
 
   // Check URL hash for direct page navigation
   const hash = window.location.hash.replace('#', '');
-  if (['dashboard', 'devices', 'schedules', 'logs'].includes(hash)) {
+  if (['dashboard', 'devices', 'schedules', 'dept-rules', 'logs'].includes(hash)) {
     switchPage(hash);
   } else {
     switchPage('dashboard');
@@ -651,6 +652,7 @@ async function loadInitialData() {
     }
 
     loadDevices();
+    loadDeptRules();
   } catch (err) {
     log(`Failed to fetch schedules: ${err.message}`, 'error');
   }
@@ -1162,7 +1164,6 @@ async function submitWatermarkModal() {
   }
 }
 
-
 // 4. Cron Schedules Management
 function humanizeCron(expr) {
   if (!expr) return '';
@@ -1580,6 +1581,9 @@ async function executeTestFetch(service, startVal, endVal) {
     if (data.matchedOTCount !== undefined) {
       filterBadge += `<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-800 font-bold">OT Gate: ${data.matchedOTCount}</span>`;
     }
+    if (data.helpRecords !== undefined) {
+      filterBadge += `<span class="px-2 py-0.5 rounded bg-purple-100 text-purple-800 font-bold">Completed (In+Out): ${data.helpRecords}</span>`;
+    }
 
     const metaHTML = `
       ${statusBadge}
@@ -1722,7 +1726,372 @@ async function executeSync(action, startVal = '', endVal = '') {
 document.addEventListener('DOMContentLoaded', loadInitialData);
 window.addEventListener('hashchange', () => {
   const hash = window.location.hash.replace('#', '');
-  if (['dashboard', 'devices', 'schedules', 'logs'].includes(hash)) {
+  if (['dashboard', 'devices', 'schedules', 'dept-rules', 'logs'].includes(hash)) {
     switchPage(hash);
   }
 });
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// ==========================================
+// 9. Department & Rule Mapping Management
+// ==========================================
+let departmentRules = [];
+
+async function loadDeptRules() {
+  try {
+    const res = await fetch('/api/department-rules');
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    departmentRules = await res.json() || [];
+
+    const navBadge = document.getElementById('navDeptRulesCountBadge');
+    if (navBadge) navBadge.textContent = departmentRules.length;
+
+    const countBadge = document.getElementById('deptRulesCountBadge');
+    if (countBadge) countBadge.textContent = `${departmentRules.length} Mappings`;
+
+    renderDeptRulesTable();
+  } catch (err) {
+    log(`Failed to load department rules: ${err.message}`, 'error');
+  }
+}
+
+function renderDeptRulesTable(filterQuery = '') {
+  const tbody = document.getElementById('deptRulesTableBody');
+  if (!tbody) return;
+
+  const q = filterQuery.toLowerCase().trim();
+  const filtered = departmentRules.filter(r => {
+    if (!q) return true;
+    const dept = (r.departmentCode || '').toLowerCase();
+    const cat = (r.category || '').toLowerCase();
+    const rule = (r.ruleCode || '').toLowerCase();
+    return dept.includes(q) || cat.includes(q) || rule.includes(q);
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="py-12 text-center text-slate-400">
+          <div class="space-y-1.5">
+            <div class="text-sm font-semibold text-slate-600">ไม่พบข้อมูล Department & Category Rule Mapping</div>
+            <p class="text-xs text-slate-400">กด '+ Add Rule' เพื่อเพิ่มรายการ หรือ 'Import Excel' เพื่อนำเข้าไฟล์</p>
+          </div>
+        </td>
+      </tr>`;
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((item, idx) => {
+    const safeDept = escapeHtml(item.departmentCode || '');
+    const safeCat = escapeHtml(item.category || '');
+    const safeRule = escapeHtml(item.ruleCode || '');
+    const updated = item.updatedAt ? escapeHtml(item.updatedAt) : '-';
+
+    const categoryBadge = safeCat 
+      ? `<span class="inline-flex items-center px-2 py-0.5 rounded font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">${safeCat}</span>`
+      : `<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] text-slate-400 italic bg-slate-50 border border-slate-200">Default (All)</span>`;
+
+    return `
+      <tr class="hover:bg-slate-50/70 transition-colors">
+        <td class="py-3 px-4 text-center font-mono text-slate-400 text-xs">${idx + 1}</td>
+        <td class="py-3 px-4">
+          <span class="inline-flex items-center px-2 py-0.5 rounded font-mono font-bold bg-blue-50 text-blue-700 border border-blue-200">
+            ${safeDept}
+          </span>
+        </td>
+        <td class="py-3 px-4">
+          ${categoryBadge}
+        </td>
+        <td class="py-3 px-4">
+          <span class="inline-flex items-center px-2 py-0.5 rounded font-mono font-bold bg-purple-50 text-purple-700 border border-purple-200">
+            ${safeRule}
+          </span>
+        </td>
+        <td class="py-3 px-4 text-slate-500 font-mono text-[11px]">${updated}</td>
+        <td class="py-3 px-4 text-center">
+          <div class="flex items-center justify-center gap-1.5">
+            <button type="button" onclick="openDeptRuleModal('${safeDept}', '${safeCat}', '${safeRule}')" class="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer" title="Edit">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path>
+              </svg>
+            </button>
+            <button type="button" onclick="deleteDeptRule('${safeDept}', '${safeCat}')" class="p-1 rounded hover:bg-rose-100 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer" title="Delete">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+              </svg>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function filterDeptRulesTable() {
+  const input = document.getElementById('deptRulesSearchInput');
+  renderDeptRulesTable(input ? input.value : '');
+}
+
+function openDeptRuleModal(deptCode = '', category = '', ruleCode = '') {
+  const modal = document.getElementById('deptRuleModal');
+  const title = document.getElementById('deptRuleModalTitle');
+  const deptInput = document.getElementById('deptRuleForm_deptCode');
+  const catInput = document.getElementById('deptRuleForm_category');
+  const ruleInput = document.getElementById('deptRuleForm_ruleCode');
+  const origDept = document.getElementById('deptRuleForm_origDeptCode');
+  const origCat = document.getElementById('deptRuleForm_origCategory');
+
+  if (origDept) origDept.value = deptCode;
+  if (origCat) origCat.value = category;
+
+  if (deptInput) {
+    deptInput.value = deptCode;
+  }
+  if (catInput) {
+    catInput.value = category;
+  }
+  if (ruleInput) {
+    ruleInput.value = ruleCode;
+  }
+
+  if (title) {
+    if (deptCode) {
+      const catLabel = category ? ` (${category})` : '';
+      title.textContent = `Edit Rule for ${deptCode}${catLabel}`;
+    } else {
+      title.textContent = 'Add Department & Category Rule';
+    }
+  }
+
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeDeptRuleModal() {
+  const modal = document.getElementById('deptRuleModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function submitDeptRuleForm(e) {
+  e.preventDefault();
+  const deptInput = document.getElementById('deptRuleForm_deptCode');
+  const catInput = document.getElementById('deptRuleForm_category');
+  const ruleInput = document.getElementById('deptRuleForm_ruleCode');
+  const origDeptEl = document.getElementById('deptRuleForm_origDeptCode');
+  const origCatEl = document.getElementById('deptRuleForm_origCategory');
+  const btn = document.getElementById('btn-save-dept-rule');
+
+  const deptCode = (deptInput ? deptInput.value : '').trim().toUpperCase();
+  const category = (catInput ? catInput.value : '').trim().toUpperCase();
+  const ruleCode = (ruleInput ? ruleInput.value : '').trim().toUpperCase();
+  const origDeptCode = (origDeptEl ? origDeptEl.value : '').trim().toUpperCase();
+  const origCategory = (origCatEl ? origCatEl.value : '').trim().toUpperCase();
+
+  if (!deptCode || !ruleCode) {
+    showToast('กรุณากรอกทั้ง Department Code และ Rule Code', false);
+    return;
+  }
+
+  const origHTML = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>กำลังบันทึก...</span>';
+  }
+
+  try {
+    const res = await fetch('/api/department-rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        origDepartmentCode: origDeptCode,
+        origCategory: origCategory,
+        departmentCode: deptCode,
+        category: category,
+        ruleCode: ruleCode
+      })
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(errText || `HTTP ${res.status}`);
+    }
+
+    const catDesc = category ? ` [${category}]` : '';
+    showToast(`บันทึกกฎแผนก ${deptCode}${catDesc} → ${ruleCode} เรียบร้อย`, true);
+    log(`Department rule updated: ${deptCode}${catDesc} → ${ruleCode}`, 'success');
+    closeDeptRuleModal();
+    loadDeptRules();
+  } catch (err) {
+    showToast(`บันทึกไม่สำเร็จ: ${err.message}`, false);
+    log(`Error saving department rule: ${err.message}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origHTML;
+    }
+  }
+}
+
+// ==========================================
+// 10. People Excel Direct Upload
+// ==========================================
+function openPeopleUploadModal() {
+  const modal = document.getElementById('peopleUploadModal');
+  const input = document.getElementById('peopleExcelFileInput');
+  if (input) input.value = '';
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closePeopleUploadModal() {
+  const modal = document.getElementById('peopleUploadModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function submitPeopleUploadForm(e) {
+  e.preventDefault();
+  const fileInput = document.getElementById('peopleExcelFileInput');
+  const autoProcessCheck = document.getElementById('peopleUploadAutoProcess');
+  const btn = document.getElementById('btn-submit-upload-people');
+
+  if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+    showToast('กรุณาเลือกไฟล์พนักงานเพื่ออัปโหลด', false);
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const autoProcess = autoProcessCheck ? autoProcessCheck.checked : true;
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('autoProcess', autoProcess ? 'true' : 'false');
+  const personTypeEl = document.getElementById('peopleUploadPersonType');
+  formData.append('personType', personTypeEl ? personTypeEl.value : 'PERMANENT');
+
+  const origHTML = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>กำลังอัปโหลด...</span>';
+  }
+
+  log(`Uploading ${file.name} to people folder (AutoProcess: ${autoProcess})...`, 'running');
+
+  try {
+    const res = await fetch('/api/people/upload', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || data.error || `HTTP ${res.status}`);
+    }
+
+    showToast(data.message || `อัปโหลด ${file.name} สำเร็จ`, true);
+    log(`People file ${file.name}: ${data.message}`, 'success');
+    closePeopleUploadModal();
+  } catch (err) {
+    showToast(`อัปโหลดไม่สำเร็จ: ${err.message}`, false);
+    log(`People upload error: ${err.message}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origHTML;
+    }
+  }
+}
+
+async function deleteDeptRule(deptCode, category = '') {
+  const promptText = category 
+    ? `คุณต้องการลบกฎของแผนก "${deptCode}" (Category: "${category}") ใช่หรือไม่?`
+    : `คุณต้องการลบ Default Rule ของแผนก "${deptCode}" ใช่หรือไม่?`;
+
+  if (!confirm(promptText)) {
+    return;
+  }
+
+  try {
+    const q = `/api/department-rules?departmentCode=${encodeURIComponent(deptCode)}&category=${encodeURIComponent(category || '')}`;
+    const res = await fetch(q, {
+      method: 'DELETE'
+    });
+
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(errText || `HTTP ${res.status}`);
+    }
+
+    const catDesc = category ? ` [${category}]` : '';
+    showToast(`ลบแผนก ${deptCode}${catDesc} เรียบร้อย`, true);
+    log(`Deleted department rule for ${deptCode}${catDesc}`, 'success');
+    loadDeptRules();
+  } catch (err) {
+    showToast(`ลบไม่สำเร็จ: ${err.message}`, false);
+    log(`Error deleting department rule: ${err.message}`, 'error');
+  }
+}
+
+function openImportDeptRulesModal() {
+  const modal = document.getElementById('importDeptRulesModal');
+  const input = document.getElementById('deptRulesExcelFileInput');
+  if (input) input.value = '';
+  if (modal) modal.classList.remove('hidden');
+}
+
+function closeImportDeptRulesModal() {
+  const modal = document.getElementById('importDeptRulesModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function submitImportDeptRulesForm(e) {
+  e.preventDefault();
+  const fileInput = document.getElementById('deptRulesExcelFileInput');
+  const btn = document.getElementById('btn-submit-import-dept-rules');
+
+  if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+    showToast('กรุณาเลือกไฟล์ Excel เพื่อนำเข้า', false);
+    return;
+  }
+
+  const file = fileInput.files[0];
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const origHTML = btn ? btn.innerHTML : '';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span>กำลังนำเข้า...</span>';
+  }
+
+  try {
+    const res = await fetch('/api/department-rules/import', {
+      method: 'POST',
+      body: formData
+    });
+
+    const data = await res.json();
+    if (!res.ok || !data.success) {
+      throw new Error(data.error || `HTTP ${res.status}`);
+    }
+
+    showToast(data.message || 'นำเข้าข้อมูลสำเร็จ', true);
+    log(`Imported department rules from ${file.name}: +${data.inserted} added, ${data.updated} updated`, 'success');
+    closeImportDeptRulesModal();
+    loadDeptRules();
+  } catch (err) {
+    showToast(`นำเข้าไม่สำเร็จ: ${err.message}`, false);
+    log(`Import error: ${err.message}`, 'error');
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = origHTML;
+    }
+  }
+}

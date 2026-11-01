@@ -24,8 +24,9 @@ type Config struct {
 	AppPassword    string `json:"appPassword"`
 	AppTenantID    string `json:"appTenantId"`
 	AppSecretKey   string `json:"appSecretKey"`
-	ConfigFilePath string `json:"-"`
-	DevicesFilePath string `json:"-"`
+	ConfigFilePath          string `json:"-"`
+	DevicesFilePath         string `json:"-"`
+	DepartmentRulesFilePath string `json:"-"`
 
 	// From config.json (persisted)
 	HTTPPort      string             `json:"httpPort"`
@@ -90,6 +91,15 @@ func LoadConfig() (*Config, error) {
 	devicesFilePath := getEnv("DEVICES_FILE_PATH", filepath.Join(filepath.Dir(configFilePath), "devices.json"))
 	if absPath, err := filepath.Abs(devicesFilePath); err == nil {
 		devicesFilePath = absPath
+	}
+
+	departmentRulesFilePath := getEnv("DEPARTMENT_RULES_FILE_PATH", filepath.Join(filepath.Dir(configFilePath), "department_rules.json"))
+	if absPath, err := filepath.Abs(departmentRulesFilePath); err == nil {
+		departmentRulesFilePath = absPath
+	}
+	if _, err := os.Stat(departmentRulesFilePath); os.IsNotExist(err) {
+		emptyBytes, _ := json.MarshalIndent([]model.DepartmentRule{}, "", "  ")
+		_ = os.WriteFile(departmentRulesFilePath, emptyBytes, 0644)
 	}
 
 	if apiURL == "" {
@@ -165,8 +175,9 @@ func LoadConfig() (*Config, error) {
 		AppPassword:     password,
 		AppTenantID:     tenantID,
 		AppSecretKey:    secretKey,
-		ConfigFilePath:  configFilePath,
-		DevicesFilePath: devicesFilePath,
+		ConfigFilePath:          configFilePath,
+		DevicesFilePath:         devicesFilePath,
+		DepartmentRulesFilePath: departmentRulesFilePath,
 		HTTPPort:        jsonCfg.HTTPPort,
 		ExportBaseDir:   jsonCfg.ExportBaseDir,
 		LogLevel:        jsonCfg.LogLevel,
@@ -666,5 +677,94 @@ func (c *Config) SaveConfig(updatedJSON JSONConfigFile) error {
 	c.Jobs = updatedJSON.Jobs
 
 	return nil
+}
+
+// GetDepartmentRules reads the current department rules mapping from department_rules.json
+func (c *Config) GetDepartmentRules() ([]model.DepartmentRule, error) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if _, err := os.Stat(c.DepartmentRulesFilePath); os.IsNotExist(err) {
+		return []model.DepartmentRule{}, nil
+	}
+
+	data, err := os.ReadFile(c.DepartmentRulesFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %s: %w", c.DepartmentRulesFilePath, err)
+	}
+
+	var rules []model.DepartmentRule
+	if err := json.Unmarshal(data, &rules); err != nil {
+		return nil, fmt.Errorf("failed to parse %s: %w", c.DepartmentRulesFilePath, err)
+	}
+
+	return rules, nil
+}
+
+// SaveDepartmentRules writes the list of department rules to department_rules.json
+func (c *Config) SaveDepartmentRules(rules []model.DepartmentRule) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	data, err := json.MarshalIndent(rules, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to serialize department rules: %w", err)
+	}
+
+	if err := os.WriteFile(c.DepartmentRulesFilePath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write %s: %w", c.DepartmentRulesFilePath, err)
+	}
+
+	return nil
+}
+
+// CleanRuleString trims spaces, tabs, newlines, and surrounding quotes (both " and ')
+func CleanRuleString(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.Trim(s, "\"'\uFEFF\u200B")
+	return strings.TrimSpace(s)
+}
+
+// GetRuleCodeForDepartment looks up the rule code for a given department code (fallback with empty category)
+func (c *Config) GetRuleCodeForDepartment(deptCode string) string {
+	return c.GetRuleCodeForDepartmentAndCategory(deptCode, "")
+}
+
+// GetRuleCodeForDepartmentAndCategory looks up the rule code for a given department code and category.
+// It prioritizes an exact (department + category) match, then falls back to a department-level rule (empty or wildcard category).
+// It automatically trims spaces, strips quotes, and performs case-insensitive (lower/upper) comparison.
+func (c *Config) GetRuleCodeForDepartmentAndCategory(deptCode, category string) string {
+	targetDept := CleanRuleString(deptCode)
+	if targetDept == "" {
+		return ""
+	}
+	targetCat := CleanRuleString(category)
+
+	rules, err := c.GetDepartmentRules()
+	if err != nil {
+		return ""
+	}
+
+	var fallbackRule string
+
+	for _, r := range rules {
+		deptMatch := strings.EqualFold(CleanRuleString(r.DepartmentCode), targetDept)
+		if !deptMatch {
+			continue
+		}
+
+		rCat := CleanRuleString(r.Category)
+		// Exact category match (case-insensitive)
+		if targetCat != "" && strings.EqualFold(rCat, targetCat) {
+			return CleanRuleString(r.RuleCode)
+		}
+
+		// Fallback rule for the department (blank or wildcard)
+		if rCat == "" || rCat == "*" {
+			fallbackRule = CleanRuleString(r.RuleCode)
+		}
+	}
+
+	return fallbackRule
 }
 

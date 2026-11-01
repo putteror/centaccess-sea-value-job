@@ -54,7 +54,18 @@
         <span id="navSchCountBadge" class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-mono">0</span>
       </button>
 
-      <!-- Nav Item 4: Activity Console -->
+      <!-- Nav Item 4: Department Rules -->
+      <button type="button" onclick="switchPage('dept-rules')" id="nav-dept-rules" class="w-full px-3 py-2 rounded-lg font-medium text-xs text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-between transition-colors cursor-pointer">
+        <div class="flex items-center gap-2.5">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+          </svg>
+          <span>Dept & Rules</span>
+        </div>
+        <span id="navDeptRulesCountBadge" class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-mono">0</span>
+      </button>
+
+      <!-- Nav Item 5: Activity Console -->
       <button type="button" onclick="switchPage('logs')" id="nav-logs" class="w-full px-3 py-2 rounded-lg font-medium text-xs text-slate-400 hover:text-white hover:bg-slate-800 flex items-center justify-between transition-colors cursor-pointer">
         <div class="flex items-center gap-2.5">
           <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">

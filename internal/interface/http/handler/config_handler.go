@@ -4,12 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/putteror/sea-value/internal/config"
 	"github.com/putteror/sea-value/internal/core/model"
+	"github.com/putteror/sea-value/internal/core/port"
 	"github.com/putteror/sea-value/internal/core/service"
 	appcron "github.com/putteror/sea-value/internal/cron"
 	"github.com/putteror/sea-value/internal/interface/http/web"
@@ -23,6 +28,7 @@ type ConfigHandler struct {
 	deviceService     service.DeviceService
 	diagnosticService service.DiagnosticService
 	syncOrchestrator  service.SyncOrchestratorService
+	deptRuleService   port.DepartmentRuleService
 	scheduler         *appcron.Scheduler
 }
 
@@ -33,6 +39,7 @@ func NewConfigHandler(
 	deviceService service.DeviceService,
 	diagnosticService service.DiagnosticService,
 	syncOrchestrator service.SyncOrchestratorService,
+	deptRuleService port.DepartmentRuleService,
 	scheduler *appcron.Scheduler,
 ) *ConfigHandler {
 	return &ConfigHandler{
@@ -42,6 +49,7 @@ func NewConfigHandler(
 		deviceService:     deviceService,
 		diagnosticService: diagnosticService,
 		syncOrchestrator:  syncOrchestrator,
+		deptRuleService:   deptRuleService,
 		scheduler:         scheduler,
 	}
 }
@@ -224,6 +232,64 @@ func (h *ConfigHandler) TriggerPeopleImport(w http.ResponseWriter, r *http.Reque
 
 	msg, err := h.syncOrchestrator.TriggerManualSync(ctx, "people", time.Time{}, time.Time{})
 	h.renderSyncResponse(w, msg, err)
+}
+
+func (h *ConfigHandler) UploadPeopleExcel(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Minute)
+	defer cancel()
+
+	if err := r.ParseMultipartForm(32 << 20); err != nil {
+		http.Error(w, "failed to parse multipart form", http.StatusBadRequest)
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "missing 'file' in upload request", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	inputFolder := h.cfg.Jobs.PeopleImport.InputFolder
+	if inputFolder == "" {
+		inputFolder = "people"
+	}
+	peopleDir := filepath.Join(h.cfg.ExportBaseDir, inputFolder)
+	_ = os.MkdirAll(peopleDir, 0755)
+
+	destPath := filepath.Join(peopleDir, header.Filename)
+	out, err := os.Create(destPath)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to save file: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	if _, err := io.Copy(out, file); err != nil {
+		out.Close()
+		http.Error(w, fmt.Sprintf("failed to write file: %v", err), http.StatusInternalServerError)
+		return
+	}
+	out.Close()
+
+	autoProcess := r.FormValue("autoProcess") != "false"
+	var msg string
+	if autoProcess {
+		if _, err := h.syncOrchestrator.TriggerManualSync(ctx, "people", time.Time{}, time.Time{}); err != nil {
+			log.Printf("[PEOPLE UPLOAD WARNING] Uploaded but process error: %v\n", err)
+			msg = fmt.Sprintf("File %s uploaded, but processing reported: %v", header.Filename, err)
+		} else {
+			msg = fmt.Sprintf("File %s uploaded and imported successfully.", header.Filename)
+		}
+	} else {
+		msg = fmt.Sprintf("File %s saved to %s (Pending auto-scan).", header.Filename, destPath)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"message":  msg,
+		"filename": header.Filename,
+	})
 }
 
 func (h *ConfigHandler) TriggerSyncAll(w http.ResponseWriter, r *http.Request) {
@@ -634,4 +700,127 @@ func normalizeTimeStr(val string) string {
 		}
 	}
 	return val
+}
+
+// 8. Department Rules Endpoints
+func (h *ConfigHandler) GetDepartmentRules(w http.ResponseWriter, r *http.Request) {
+	rules, err := h.deptRuleService.GetRules(r.Context())
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"error": err.Error()})
+		return
+	}
+	if rules == nil {
+		rules = []model.DepartmentRule{}
+	}
+	_ = json.NewEncoder(w).Encode(rules)
+}
+
+func (h *ConfigHandler) UpsertDepartmentRule(w http.ResponseWriter, r *http.Request) {
+	var item model.DepartmentRule
+	if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
+		http.Error(w, "invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.deptRuleService.UpsertRule(r.Context(), item); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Department rule saved successfully",
+	})
+}
+
+func (h *ConfigHandler) DeleteDepartmentRule(w http.ResponseWriter, r *http.Request) {
+	deptCode := r.URL.Query().Get("departmentCode")
+	category := r.URL.Query().Get("category")
+	if deptCode == "" {
+		var body struct {
+			DepartmentCode string `json:"departmentCode"`
+			Category       string `json:"category"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		deptCode = body.DepartmentCode
+		if category == "" {
+			category = body.Category
+		}
+	}
+
+	if strings.TrimSpace(deptCode) == "" {
+		http.Error(w, "departmentCode is required", http.StatusBadRequest)
+		return
+	}
+
+	if err := h.deptRuleService.DeleteRule(r.Context(), deptCode, category); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Department rule deleted successfully",
+	})
+}
+
+func (h *ConfigHandler) ImportDepartmentRulesExcel(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		http.Error(w, "failed to parse multipart form", http.StatusBadRequest)
+		return
+	}
+
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, "missing 'file' in upload request", http.StatusBadRequest)
+		return
+	}
+	defer file.Close()
+
+	inserted, updated, err := h.deptRuleService.ImportFromExcel(r.Context(), file)
+	w.Header().Set("Content-Type", "application/json")
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"success": false,
+			"error":   err.Error(),
+		})
+		return
+	}
+
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"success":  true,
+		"inserted": inserted,
+		"updated":  updated,
+		"message":  fmt.Sprintf("นำเข้าข้อมูลสำเร็จ: เพิ่มใหม่ %d แถว, อัปเดต %d แถว", inserted, updated),
+	})
+}
+
+func (h *ConfigHandler) DownloadDepartmentRulesTemplate(w http.ResponseWriter, r *http.Request) {
+	data, err := h.deptRuleService.GenerateExcelTemplate()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to generate template: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	w.Header().Set("Content-Disposition", "attachment; filename=\"department_rules_template.xlsx\"")
+	_, _ = w.Write(data)
+}
+
+func (h *ConfigHandler) ExportDepartmentRulesExcel(w http.ResponseWriter, r *http.Request) {
+	data, err := h.deptRuleService.ExportToExcel(r.Context())
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to export: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	filename := fmt.Sprintf("department_rules_%s.xlsx", time.Now().Format("20060102_150405"))
+	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", filename))
+	_, _ = w.Write(data)
 }

@@ -8,16 +8,18 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/putteror/sea-value/internal/core/model"
 )
 
-// UploadPeopleExcel uploads an Excel file directly to CentAccess (POST /api/people/import/:personType)
+// UploadPeopleExcel uploads an Excel file directly to CentAccess (POST /api/people/import)
 func (c *CentAccessAPIClient) UploadPeopleExcel(ctx context.Context, filePath string, personType string) (*model.ImportResult, error) {
 	if personType == "" {
-		personType = "EMPLOYEE"
+		personType = "PERMANENT"
 	}
 
 	file, err := os.Open(filePath)
@@ -38,11 +40,17 @@ func (c *CentAccessAPIClient) UploadPeopleExcel(ctx context.Context, filePath st
 		return nil, fmt.Errorf("failed to copy file to multipart: %w", err)
 	}
 
+	// Attach personType to FormData (PERMANENT or TEMPORARY)
+	if err := writer.WriteField("personType", personType); err != nil {
+		return nil, fmt.Errorf("failed to write personType field: %w", err)
+	}
+
 	if err := writer.Close(); err != nil {
 		return nil, fmt.Errorf("failed to close multipart writer: %w", err)
 	}
 
-	reqURL := fmt.Sprintf("%s/api/people/import/%s", c.cfg.AppAPIURL, personType)
+	// New route: POST /api/people/import (no :personType in path)
+	reqURL := fmt.Sprintf("%s/api/people/import?personType=%s", c.cfg.AppAPIURL, url.QueryEscape(personType))
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, reqURL, body)
 	if err != nil {
 		return nil, err
@@ -80,10 +88,15 @@ func (c *CentAccessAPIClient) ImportPeople(ctx context.Context, people []model.P
 	authHeader, _ := c.GetAuthToken(ctx)
 
 	for _, p := range people {
+		pType := strings.ToUpper(strings.TrimSpace(p.PersonType))
+		if pType == "" {
+			pType = "PERMANENT"
+		}
+
 		reqBody := model.CreatePersonRequest{
 			FirstName:    p.FirstName,
 			LastName:     p.LastName,
-			PersonType:   "EMPLOYEE",
+			PersonType:   pType,
 			PersonCode:   p.PersonCode,
 			Department:   p.Department,
 			JobPosition:  p.Position,
@@ -92,6 +105,9 @@ func (c *CentAccessAPIClient) ImportPeople(ctx context.Context, people []model.P
 		}
 		if p.CardNumber != "" {
 			reqBody.AccessCardNumbers = []string{p.CardNumber}
+		}
+		if p.RuleCode != "" {
+			reqBody.AccessControlRuleIDs = []string{p.RuleCode}
 		}
 
 		payloadBytes, _ := json.Marshal(reqBody)
